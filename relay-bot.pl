@@ -1,12 +1,12 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.39 2002/10/21 17:45:37 freiheit Exp $
+# $Id: relay-bot.pl,v 1.40 2002/10/22 03:48:27 wepprop Exp $
 my $version_number = "x.x";
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
 use Net::IRC;
 use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations $nick %config/;
-use vars qw/%Relays @auto_ops/;
+use vars qw/%Relays %ReceiveMap @auto_ops/;
 
 my $config_file_name = "relay-bot.config";
 
@@ -293,7 +293,7 @@ if( defined( %hosts ) ) {
 
 	my $group = 0;
 
-	foreach my$entry (@relay_channels) {
+	foreach my $entry (@relay_channels) {
 
 	    my $channel_name;
 	    my $channel_password;
@@ -332,6 +332,20 @@ if( defined( %hosts ) ) {
 	}
 	
 	last;
+    }
+}
+
+# This block creates the ReceiveMap, which is used when deciding which
+# channels to relay to.
+
+foreach my $network (keys %Relays) {
+
+    foreach my $channel (keys %{ $Relays{$network}{channels} } ) {
+
+        my $group = $Relays{$network}{channels}{$channel}{group};
+        my $rcv   = $Relays{$network}{channels}{$channel}{rcv  };
+		
+        $ReceiveMap{$group}{$network}{$channel} = $rcv;
     }
 }
 
@@ -664,17 +678,42 @@ sub on_topic {
     } elsif ($event->type() eq 'topic' and $event->to()) {
 	print LOGFILE ( ($event->to())[0] . '@'.$reverse_hosts{$self}.
 	": $args[0]\n" );
-	for my $server (@irc) {
-	    next if $server==$self;
-	    for my $to (@to) {
-		$server->privmsg($to,"*** topic ".
-				 $reverse_hosts{$self}.
-				 "!".($event->to())[0].
-				 "!".$event->nick.
-				 ": $args[0]");
-		$server->topic(($event->to())[0],$args[0]);
-	    }
-	}
+
+        my $original_network = $reverse_hosts{$self};
+
+        foreach my $original_channel (@to) {
+
+            my $channel_send_enable = $Relays{$original_network}{channels}{$original_channel}{xmit};
+
+            if( $channel_send_enable ) {
+
+                my $relay_group = $Relays{$original_network}{channels}{$original_channel}{group};
+
+                foreach my $echo_network (keys %{ $ReceiveMap{$relay_group} } ) {
+
+                    foreach my $echo_channel (keys %{ $ReceiveMap{$relay_group}{$echo_network} } ) {
+
+                        next if( ($echo_network eq $original_network) && ($echo_channel eq $original_channel) );
+
+                        my $channel_receive_enable = $ReceiveMap{$relay_group}{$echo_network}{$echo_channel};
+
+                        if( $channel_receive_enable ) {
+
+                            my $server = $forward_hosts{$echo_network};
+
+                            $server->privmsg($echo_channel,"*** topic ".
+                                             $original_network.
+                                             "!".$original_channel.
+                                             "!".$event->nick.
+                                             ": $args[0]");
+
+                            $server->topic($echo_channel,$args[0]);
+
+                        }
+                    }
+                }
+            }
+        }
 
         for my $to (@to) {
             next unless exists $relay_channels_extra{$to};

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.29 2002/07/18 15:25:33 freiheit Exp $
+# $Id: relay-bot.pl,v 1.30 2002/07/18 17:06:20 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
@@ -321,6 +321,7 @@ sub on_topic {
 	}
 
         for my $to (@to) {
+            next unless exists $relay_channels_extra{$to};
             my @channels_to = @{$relay_channels_extra{$to}};
             for my $channel_to (@channels_to) {
                 for my $server (@irc) {
@@ -375,6 +376,7 @@ sub public_msg {
     }
 
     for my $to (@to) {
+        next unless exists $relay_channels_extra{$to};
         my @channels_to = @{$relay_channels_extra{$to}};
         for my $channel_to (@channels_to) {
             for my $server (@irc) {
@@ -401,10 +403,11 @@ sub public_action {
         }
     }
     for my $to (@to) {
+        next unless exists $relay_channels_extra{$to};
         my @channels_to = @{$relay_channels_extra{$to}};
         for my $channel_to (@channels_to) {
             for my $server (@irc) {
-                $server->privmsg($channel_to,"* $nick\@$reverse_hosts{$self} @args");
+                $server->privmsg($channel_to, "* $nick\@$reverse_hosts{$self} @args");
             }
         }
     }
@@ -479,6 +482,7 @@ sub on_join {
 	}
     }
     for my $to ($event->to) {
+        next unless exists $relay_channels_extra{$to};
         my @channels_to = @{$relay_channels_extra{$to}};
         for my $channel_to (@channels_to) {
             for my $server (@irc) {

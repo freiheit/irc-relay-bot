@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.14 2001/06/07 19:26:34 freiheit Exp $
+# $Id: relay-bot.pl,v 1.15 2001/06/08 22:25:47 freiheit Exp $
+
 use strict;
 use lib qw:/usr/local/lib/site_perl/:;
 use Net::IRC;

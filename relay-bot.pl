@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.10 2000/11/28 06:56:33 eric Exp $
+# $Id: relay-bot.pl,v 1.11 2000/12/11 07:39:28 eric Exp $
 use strict;
 
 use lib qw:/usr/local/lib/site_perl/:;
@@ -10,9 +10,35 @@ my $irc = Net::IRC->new();
 
 my @irc;
 
+my %cmd_pending = (
+	names => [], ping => [], kick => [], whatever => []
+);
+
+my @relay_channels = ('#fandanta','#irkles');
+
+my $badpersonpriv = {};
+my $normalpriv = { 'names' => 1 };
+my $partjoinpriv = { %{$normalpriv}, 'part' => 1, 'join' => 1 };
+my $operpriv = { %{$partjoinpriv}, 'restart' => 1, 'quit' => 1, 'op' => 1 };
+my $allpriv = { '*' => 1 };
+
+# Those who may do things.  The first match takes precedence.  Patterns are
+# evaluated case-insensitively unless they have capital letters in them.
+my @authorizations = (
+	[ '^.?.?tr[o0]n|\.aol\.com|\.psi\.net' => $badpersonpriv ],
+	[ '^\w+!~?(aqua|eric)@'.
+		'adsl-63-197-80-100.dsl\.snfc21\.pacbell\.net$' => $operpriv ],
+	[ '^\w+!~?(echoes|ramoth)@'.
+		'adsl-63-197-80-100.dsl\.snfc21\.pacbell\.net$' => $operpriv ],
+	[ '^.?(ligeia|requiem|moppet|diphen|whitebird|aigeanta|proteous|freiheit|dragongrl).?!' => 
+		$partjoinpriv ],
+	[ '.' => $normalpriv ],
+);
+
+
 my %hosts = (
-    efnet => 'irc.west.gblx.net', # EFnet
-#    'irc.east.gblx.net', # EFnet
+#    efnet => 'irc.west.gblx.net', # EFnet
+    efnet => 'irc.east.gblx.net', # EFnet
 #    'irc.lightning.net', # EFnet
 
     undernet => 'us.undernet.org',
@@ -22,56 +48,131 @@ my %hosts = (
 
     # 'us.dal.net',
 
-    openprojects => 'irc.openprojects.net',
+    openprojects => 'irc.debian.org', # 'irc.openprojects.net',
 
     #'irc.chelmsford.com', # Newnet
 );
 
+my %forward_hosts = ();
 my %reverse_hosts = ();
 
 my $host;
 foreach $host (keys %hosts) {
     my $connect =  $irc->newconn(
 	Nick   => 'Fandanta',
+	Ircname => `/usr/games/fortune -s -n 60 zippy`,
 	Server => $hosts{$host});
     if (defined($connect) && $connect) {
         push @irc, $connect;
+	$forward_hosts{$host} = $connect;
 	$reverse_hosts{"$connect"} = $host;
     }
 }
 
-#my $efnet = $irc->newconn(Nick   => 'Fandanta',
-#                          Server => 'irc.west.gblx.net',
-#);
-#
-#my $under = $irc->newconn(Nick   => 'Fandanta',
-##                          Server => 'lasvegas.nv.us.undernet.org',
-##                          Server => 'austin.tx.us.undernet.org',
-#                          Server => 'atlanta.ga.US.Undernet.Org',
-#);
-#
-#my $dal = $irc->newconn(Nick   => 'Fandanta',
-#                        Server => 'us.dal.net',
-#);
-#
-#my $open = $irc->newconn(Nick   => 'Fandanta',
-#                        Server => 'irc.openprojects.net',
-#);
-#
-##my $newnet = $irc->newconn(Nick   => 'Fandanta',
-##                           Server => 'irc.chelmsford.com',
-##);
-#
-#push @irc, $efnet || (), $under || (), $dal || (), $open || (), $newnet || ();
+sub cmd_auth {
+	my ($nuh,$cmd) = @_;
+	ref $nuh eq 'Net::IRC::Event' and $nuh = $nuh->nick.'!'.$nuh->userhost;
+	$cmd or return undef;
+
+	for my $o (@authorizations) {
+		# some people think Perl's a write-only language... :)
+		($o->[0] =~ tr/A-Z/A-Z/ ? $nuh =~ /$o->[0]/ : $nuh =~ /$o->[0]/i) and
+			return ($o->[1]->{'*'} || $o->[1]->{$cmd});
+	}
+	0;
+}
+
+my @allcmd = ('names','restart','die','quit','leave','part','join');
+my %cmd_map = ( 'die' => 'quit', 'leave' => 'part', map { ($_=>$_) } @allcmd );
+my @permdenied_msg = ( 'Permission denied.', 'Insufficient privelege',
+			'u r ! l33t w1t m3' );
+sub cmd {
+	my ($cmd,$who,$host,$event) = @_;
+	my $cmd0 = $cmd;
+	my @args;
+	my $mode = 'public';
+	my $n = $host->nick;
+	$cmd =~ /^\^(\w+)/ and $mode = 'silent';
+	$cmd =~ s/^[\^\/](\w+)/$1/;
+	($cmd,@args) = split /\s+/, $cmd;
+
+	unless ($cmd = $cmd_map{lc $cmd}) {
+		$host->privmsg(($event->to)[0],"$who: unknown command $cmd0");
+		return;
+	}
+	unless (&cmd_auth("$who!".$event->userhost,$cmd)) {
+		for ($event->to) {
+			print "\t$who!".$event->userhost." lacks authorization\n";
+			$host->privmsg($_,"$who: $cmd: ".
+				@permdenied_msg[int rand($#permdenied_msg+1)]);
+		}
+		return;
+	}
+
+	print "$reverse_hosts{$host}!$who issued cmd '$cmd' args {@args}\n";
+	if (lc $cmd eq 'names') {
+		my $channel = shift @args || ($event->to)[0];
+		for my $server (@irc) {
+			next if $server == $host;
+			push @{$cmd_pending{names}},
+				[ $mode eq 'public' ? ($event->to)[0] : $who,
+					$server, $host, $event ];
+			print "/// names command issued on $channel\n";
+			$server->names($channel);
+		}
+	} elsif ($cmd eq 'join') {
+		my $channel = shift @args || return;
+		my $network = shift @args || '';
+		$network eq 'here' and $network = $reverse_hosts{$host};
+
+		unless (grep($_ eq $channel,@relay_channels)) {
+			$host->privmsg(($event->to)[0],
+				"$who: I'm not allowed in $channel.");
+			return;
+		}
+		if ($network and $forward_hosts{$network}) {
+			$forward_hosts{$network}->join($channel);
+		} else {
+			for my $server (@irc) {
+				push @{$cmd_pending{'join'}},
+					[ $mode eq 'public' ? ($event->to)[0] : $who,
+						$server, $host, $event, $channel ];
+				$server->join($channel);
+			}
+		}
+	} elsif ($cmd eq 'part') {
+		my $channel = shift @args || return;
+		grep($_ eq $channel,@relay_channels) or return; # report error here
+		my $network = shift @args || '';
+		if ($network and $forward_hosts{$network}) {
+			$forward_hosts{$network}->part($channel);
+		} else {
+			for my $server (@irc) {
+				push @{$cmd_pending{part}},
+					[ $mode eq 'public' ? ($event->to)[0] : $who,
+						$server, $host, $event, $channel ];
+				$server->part($channel);
+			}
+		}
+	} elsif ($cmd eq 'quit' or $cmd eq 'restart') {
+			for my $server (@irc) {
+			$server->quit($cmd eq 'quit' ? "Bailing" : "Restarting".
+				" ($who)");
+		}
+		$cmd eq 'quit' and exit;
+		sleep 5;
+		exec($0,@ARGV) || die "exec($0,@ARGV): $!";
+	}
+}
+
 
 sub on_connect {
     my $self = shift;
 
-    print "Joining #fandanta\n";
-    $self->join("#fandanta");
-
-    print "Joining #irkles\n";
-    $self->join("#irkles");
+	for (@relay_channels) {
+		print "$reverse_hosts{$self}!$_ joining channel\n";
+		$self->join($_);
+	}
 }
 
 for (@irc) {
@@ -99,7 +200,29 @@ sub on_names {
     # splice() only works on real arrays. Sigh.
     ($channel, @list) = splice @list, 2;
 
-    print "Users on $channel: @list\n";
+	my $desc = "*** $reverse_hosts{$self}!$channel".
+		" names: @list";
+
+	print "$reverse_hosts{$self}!$channel names: @list\n";
+	return unless @{$cmd_pending{names}};
+	my $n=0;
+	for my $w (@{$cmd_pending{names}}) {
+		if ($w->[1] == $self and
+			($w->[3]->to)[0] eq $channel) {
+			print "/// command channel=$channel who=$w->[0]\n";
+			$w->[2]->privmsg($w->[0],$desc);
+			splice(@{$cmd_pending{names}},$n,1);
+			last;
+		}
+		$n++;
+	}
+	for my $server (@irc) {
+		next if $server == $self;
+		$server->privmsg(($event->to)[0],$desc);
+#		for my $to ($event->to) {
+#		    print "/// privmsg to=$to desc=$desc\n";
+#		}
+	}
 }
 
 for (@irc) {
@@ -111,8 +234,9 @@ sub on_ping {
     my ($self, $event) = @_;
     my $nick = $event->nick;
 
+    print "$reverse_hosts{$self} ping from $nick\n";
+
     $self->ctcp_reply($nick, join (' ', ($event->args)));
-    print "*** CTCP PING request from $nick received\n";
 }
 
 for (@irc) {
@@ -210,6 +334,14 @@ sub public_msg {
     return if $arg =~ m/^\<\w+\> /;
     return if $arg =~ m/^\* \w+ /;
 
+	my $n = $self->nick;
+	if ($arg =~ /^(\Q$n\E[,:]\s*)?([\^\/!]\w+)(\s|$)/i) {
+		$arg =~ s/^\Q$n\E[,:]\s*//i;
+		print "$reverse_hosts{$self}!$to[0] cmd: <$nick> $arg\n";
+		&cmd($arg,$nick,$self,$event);
+		return;
+	}
+
     print "$reverse_hosts{$self}!$to[0] <$nick> $arg\n";
 
     for my $server (@irc) {
@@ -241,11 +373,18 @@ sub public_action {
 sub private_msg {
     my $self = shift;
     my $event = shift;
-
+    my @to = $event->to();
+    my $n = $self->nick;
     my $nick = $event->nick;
     my @arg = $event->args;
     my $arg = "@arg";
 
+	if ($arg =~ /^(\Q$n\E[,:]\s*)?([\^\/]\w+)(\s|$)/i) {
+		$arg =~ s/^\Q$n\E[,:]\s*//i;
+		print "$reverse_hosts{$self}!$to[0] cmd: <$nick> $arg\n";
+		&cmd($arg,$nick,$self,$event);
+		return;
+	}
 
 	if($arg =~ m/^[<>]?(\w{1,16})[<>]?\s+(.*)/) {
 		my $to = $1;
@@ -291,11 +430,31 @@ sub on_join {
 
 }
 
+sub on_nick_change {
+	my $self = shift;
+	my $event = shift;
+
+	print $reverse_hosts{$self}."!".($event->to)[0]." nick change ".
+		$event->nick." ".$event->userhost.join(' ',$event->args)."\n";
+
+	return if $event->nick eq $self->nick;
+
+	for my $server (@irc) {
+		next if $server==$self;
+		for my $to ($event->to) {
+			$server->privmsg($to,"*** nick change ".
+				$reverse_hosts{$self}."!".($event->to)[0].
+				"!".$event->userhost.' to '.
+				join(' ',$event->args));
+		}
+	}
+}
+
 sub on_part {
 	my $self = shift;
 	my $event = shift;
 
-	print $reverse_hosts{$self}."!".($event->to)[0]." part ".
+	print $reverse_hosts{$self}."!".($event->to)[0]." nick change ".
 		$event->nick." ".$event->userhost;
 
 	return if $event->nick eq $self->nick;
@@ -310,6 +469,75 @@ sub on_part {
 	}
 }
 
+sub on_kick {
+	my $self = shift;
+	my $event = shift;
+
+	print $reverse_hosts{$self}."!".($event->to)[0]." kick ".
+		$event->nick." ".join(' ',$event->args);
+
+	return if $event->nick eq $self->nick;
+
+	for my $server (@irc) {
+		next if $server==$self;
+		for my $to ($event->to) {
+			$server->privmsg($to,"*** ".
+				$reverse_hosts{$self}."!".($event->to)[0].
+				": ".$event->nick." kicked ".join(' ',$event->args));
+		}
+	}
+}
+
+sub on_mode {
+	my $self = shift;
+	my $event = shift;
+
+	print $reverse_hosts{$self}."!".($event->to)[0]." mode ".
+		$event->nick." ".join(' ',$event->args);
+
+	for my $server (@irc) {
+		next if $server==$self;
+		for my $to ($event->to) {
+			$server->privmsg($to,"*** channel mode change ".
+				$reverse_hosts{$self}."!".$event->nick.' '.
+				join(' ',$event->args));
+		}
+	}
+}
+
+sub on_umode {
+	my $self = shift;
+	my $event = shift;
+
+	print $reverse_hosts{$self}."!".($event->to)[0]." umode ".
+		$event->nick." ".join(' ',$event->args);
+
+	for my $server (@irc) {
+		next if $server==$self;
+		for my $to ($event->to) {
+			$server->privmsg($to,"*** user mode change ".
+				$reverse_hosts{$self}."!".$event->nick.' '.
+				join(' ',$event->args));
+		}
+	}
+}
+
+sub on_quit {
+	my $self = shift;
+	my $event = shift;
+
+	print $reverse_hosts{$self}."!".($event->to)[0]." quit ".
+		$event->nick." ".join(' ',$event->args);
+
+	for my $server (@irc) {
+		next if $server==$self;
+		for my $to ($event->to) {
+			$server->privmsg($to,"*** signoff ".
+				$reverse_hosts{$self}."!".$event->nick.' '.
+				join(' ',$event->args));
+		}
+	}
+}
 
 for (@irc) {
 	$_->add_handler('public',  \&public_msg);
@@ -317,7 +545,13 @@ for (@irc) {
 	$_->add_handler('caction', \&public_action);
 	$_->add_handler('join',	\&on_join);
 	$_->add_handler('part',	\&on_part);
+	$_->add_handler('nick', \&on_nick_change);
+	$_->add_handler('kick', \&on_kick);
+	$_->add_handler('mode', \&on_mode);
+	$_->add_handler('umode', \&on_umode);
+	$_->add_handler('quit', \&on_quit);
 }
 
 print "starting with ",Net::IRC->VERSION,"\n";
 $irc->start;
+

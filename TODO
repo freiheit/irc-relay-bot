@@ -5,3 +5,5 @@
 - Add auto-rejoin on kick
 
 - Convert to POE::Component::IRC
+
+- Document better

@@ -61,3 +61,29 @@ on the other servers (and send a message to the channel regarding the topic)
 
 People joining the channel, leaving the channel or signing off of IRC are
 all passed through, too.
+
+
+SPECIFICS
+
+There's a primitive command set for a very limited amount of things.
+
+/command will give public (in channel) results
+^command will give private results
+
+"/names" (or ^names) in a channel will list who's on that channel in all other
+networks  "/say /names" might be what you need to actually use in your IRC
+client.
+
+"/join #channel net" will join #channel on the network abbreviated as "net".
+(you'll probably want to do that in a private message, ie, 
+"/msg relaybot /join #channel net" or "/say /join #channel net".
+
+"/join #channel" will join #channel in all networks.
+
+"/part #channel" (private or public) or "/part #channel net"; leaves
+channel.
+
+"/quit" will cause it to sign off of IRC and exit.
+
+"/restart" will cause it to sign off of IRC and then restart itself. 
+(particularly useful for testing new configurations, etc.)

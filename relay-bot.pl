@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.48 2004/06/03 06:20:36 freiheit Exp $
+# $Id: relay-bot.pl,v 1.49 2004/06/04 23:28:33 freiheit Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -1015,7 +1015,7 @@ sub private_msg {
 	return;
     }
     
-    if($arg =~ m/^[<>]?([\w{}|^\[\]\\~]{1,16})\@(\w{1,16})[<>]?\s+(.*)/) {
+    if($arg =~ m/^[<>]?([^ <>@]{1,16})\@(\w{1,16})[<>]?\s+(.*)/) {
 	my $to = $1;
 	my $net = $2;
 	$arg = $3;
@@ -1025,7 +1025,7 @@ sub private_msg {
 	    my $server = $forward_hosts{$net};
 	    $server->privmsg($to,">$nick\@$reverse_hosts{$self}< $arg");
 	}
-    } elsif($arg =~ m/^[<>]?(\w{1,16})[<>]?\s+(.*)/) {
+    } elsif($arg =~ m/^[<>]?([^ <>@]{1,16})[<>]?\s+(.*)/) {
 	my $to = $1;
 	$arg = $2;
 	print "". ($event->to())[0].'@'.$reverse_hosts{$self}.

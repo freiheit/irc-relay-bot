@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.9 2000/11/28 06:55:06 eric Exp $
+# $Id: relay-bot.pl,v 1.10 2000/11/28 06:56:33 eric Exp $
 use strict;
 
 use lib qw:/usr/local/lib/site_perl/:;
@@ -10,28 +10,33 @@ my $irc = Net::IRC->new();
 
 my @irc;
 
-my @hosts = (
-#    'irc.west.gblx.net', # EFnet
-    'irc.east.gblx.net', # EFnet
+my %hosts = (
+    efnet => 'irc.west.gblx.net', # EFnet
+#    'irc.east.gblx.net', # EFnet
 #    'irc.lightning.net', # EFnet
 
-    'atlanta.ga.US.Undernet.Org',
+    undernet => 'us.undernet.org',
+#'atlanta.ga.US.Undernet.Org',
     #'lasvegas.nv.us.undernet.org',
     #'austin.tx.us.undernet.org',
 
     # 'us.dal.net',
 
-    'irc.openprojects.net',
+    openprojects => 'irc.openprojects.net',
 
     #'irc.chelmsford.com', # Newnet
 );
 
+my %reverse_hosts = ();
 
 my $host;
-foreach $host (@hosts) {
-    my $connect =  $irc->newconn(Nick   => 'Fandanta', Server => $host);
+foreach $host (keys %hosts) {
+    my $connect =  $irc->newconn(
+	Nick   => 'Fandanta',
+	Server => $hosts{$host});
     if (defined($connect) && $connect) {
         push @irc, $connect;
+	$reverse_hosts{"$connect"} = $host;
     }
 }
 
@@ -162,6 +167,7 @@ for (@irc) {
 sub on_topic {
         my ($self, $event) = @_;
         my @args = $event->args();
+	my @to = $event->to();
 
         # Note the use of the same handler sub for different events.
 
@@ -170,8 +176,18 @@ sub on_topic {
 
         # If it's being done _to_ the channel, it's a topic change.
         } elsif ($event->type() eq 'topic' and $event->to()) {
-            print "Topic change for ", $event->to(), ": $args[0]\n";
-
+		print $reverse_hosts{$self}.'!'.($event->to())[0].
+			": $args[0]\n";
+		for my $server (@irc) {
+			next if $server==$self;
+			for my $to (@to) {
+				$server->privmsg($to,"*** topic ".
+					$reverse_hosts{$self}.
+					"!".($event->to())[0].
+					"!".$event->nick.
+					": $args[0]");
+			}
+		}
         } else {
             print "The topic for $args[1] is \"$args[2]\".\n";
         }
@@ -194,7 +210,7 @@ sub public_msg {
     return if $arg =~ m/^\<\w+\> /;
     return if $arg =~ m/^\* \w+ /;
 
-    print "<$nick> $arg\n";
+    print "$reverse_hosts{$self}!$to[0] <$nick> $arg\n";
 
     for my $server (@irc) {
 	next if $server == $self;
@@ -212,8 +228,8 @@ sub public_action {
 #    shift @args;
 
     my @to = $event->to;
+	print $reverse_hosts{$self}.'!'.($event->to())[0]." $nick @args\n";
 
-    print "* $nick @args\n";  
     for my $server (@irc) {
 	next if $server == $self;
         for my $to (@to) {
@@ -230,23 +246,77 @@ sub private_msg {
     my @arg = $event->args;
     my $arg = "@arg";
 
-    print "PRIV: $nick: $arg\n";
 
-    if($arg =~ m/^[<>]?(\w+)[<>]?\s+(.*)/) {
-        my $to = $1;
-        my $arg = $2;
-        print ">$nick->$to< $arg\n";
-        for my $server (@irc) {
-    	    next if $server == $self;
-            $server->privmsg($to,">$nick< $arg");
-        }
-    }
+	if($arg =~ m/^[<>]?(\w{1,16})[<>]?\s+(.*)/) {
+		my $to = $1;
+		$arg = $2;
+		print $reverse_hosts{$self}.'!'.($event->to())[0].
+			"!$nick -> $to: $arg";
+		for my $server (@irc) {
+		    next if $server == $self;
+		    $server->privmsg($to,">$nick< $arg");
+		}
+	} else {
+		print $reverse_hosts{$self}.'!'.($event->to())[0].
+			"!$nick: $arg";
+	}
 }
 
+sub on_join {
+    my $self = shift;
+    my $event = shift;
+
+    my $nick = $event->nick;
+    return if $nick eq $self->nick;
+
+    my ($channel) = ($event->to)[0];
+
+    my @arg = $event->args;
+
+	for my $server (@irc) {
+		next if $server==$self;
+		for my $to ($event->to) {
+			$server->privmsg($to,"*** join ".
+				$reverse_hosts{$self}."!".
+				($event->to)[0].
+				": ".$event->nick." ".$event->userhost);
+		}
+	}
+
+	# primitive.
+	if ($event->userhost =~
+		/\@adsl-63-197-80-100\.dsl\.snfc21\.pacbell\.net$/) {
+		$self->mode($channel,'+o',$event->nick);
+	}
+
+}
+
+sub on_part {
+	my $self = shift;
+	my $event = shift;
+
+	print $reverse_hosts{$self}."!".($event->to)[0]." part ".
+		$event->nick." ".$event->userhost;
+
+	return if $event->nick eq $self->nick;
+
+	for my $server (@irc) {
+		next if $server==$self;
+		for my $to ($event->to) {
+			$server->privmsg($to,"*** part ".
+				$reverse_hosts{$self}."!".($event->to)[0].
+				": ".$event->nick." ".$event->userhost);
+		}
+	}
+}
+
+
 for (@irc) {
-    $_->add_handler('public',  \&public_msg);
-    $_->add_handler('msg',     \&private_msg);
-    $_->add_handler('caction', \&public_action);
+	$_->add_handler('public',  \&public_msg);
+	$_->add_handler('msg',     \&private_msg);
+	$_->add_handler('caction', \&public_action);
+	$_->add_handler('join',	\&on_join);
+	$_->add_handler('part',	\&on_part);
 }
 
 print "starting with ",Net::IRC->VERSION,"\n";

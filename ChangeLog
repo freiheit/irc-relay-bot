@@ -1,6 +1,12 @@
+2002-07-05 13:26  freiheit
+
+	* AUTHORS, ChangeLog, INSTALL, README (utags: RELEASE_1_POINT_0):
+	Release 1.0
+
 2002-07-05 12:47  freiheit
 
-	* relay-bot.pl: More formatting changes; net!nick -> nick@net
+	* relay-bot.pl (tags: RELEASE_1_POINT_0): More formatting changes;
+	net!nick -> nick@net
 
 2002-07-05 12:12  freiheit
 
@@ -12,8 +18,8 @@
 
 2002-07-04 12:30  freiheit
 
-	* relay-bot.config: Demonstrates multi-host per network stuff now. 
-	Mmmm...
+	* relay-bot.config (tags: RELEASE_1_POINT_0): Demonstrates
+	multi-host per network stuff now.  Mmmm...
 
 2002-07-04 12:29  freiheit
 
@@ -22,8 +28,8 @@
 
 2002-07-04 12:25  freiheit
 
-	* README, TODO: Documentation updates.	(Still terrible, but a bit
-	improved)
+	* README, TODO (tags: RELEASE_1_POINT_0): Documentation updates. 
+	(Still terrible, but a bit improved)
 
 2001-08-17 17:15  freiheit
 
@@ -56,13 +62,13 @@
 
 2001-06-10 01:03  freiheit
 
-	* AUTHORS, BUGS, INSTALL, README (utags: RELEASE_0_POINT_9): Files
-	added in preparation for initial release.
+	* AUTHORS, BUGS (tags: RELEASE_1_POINT_0), INSTALL, README (utags:
+	RELEASE_0_POINT_9): Files added in preparation for initial release.
 
 2001-06-10 00:24  freiheit
 
-	* Artistic, GPL, LICENSE (utags: RELEASE_0_POINT_9): Licensing
-	stuff...
+	* Artistic, GPL, LICENSE (utags: RELEASE_1_POINT_0,
+	RELEASE_0_POINT_9): Licensing stuff...
 
 2001-06-09 23:37  freiheit
 

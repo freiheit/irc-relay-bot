@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.38 2002/10/20 20:55:23 wepprop Exp $
+# $Id: relay-bot.pl,v 1.39 2002/10/21 17:45:37 freiheit Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -218,23 +218,23 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 require $config_file_name;
 
 # In case the options are not present in the config file...
-if ( !defined( %config ) ) {
-    %config = (
-	       echo_public_msg => 1,
-	       echo_private_msg => 1,
-	       echo_public_action => 1,
-	       echo_join => 1,
-	       echo_part => 1,
-	       echo_nick => 1,
-	       echo_kick => 1,
-	       echo_cmode => 1,
-	       echo_umode => 1,
-	       echo_quit => 1,
-	       echo_topic => 1,
-	       daemonize => 0,
-	       interface_address => "",
-    );
-}
+%config = (
+	   echo_public_msg => 1,
+	   echo_private_msg => 1,
+	   echo_public_action => 1,
+	   echo_join => 1,
+	   echo_part => 1,
+	   echo_nick => 1,
+	   echo_kick => 1,
+	   echo_cmode => 1,
+	   echo_umode => 1,
+	   echo_quit => 1,
+	   echo_topic => 1,
+	   daemonize => 0,
+	   interface_address => "",
+           # Anything in here will override the above
+           %config
+);
 
 # Override config file settings with command line args where req'd.
 if ( $override{echo_public_msg} != $unused_option ) {

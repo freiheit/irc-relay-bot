@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.41 2002/10/23 00:49:38 wepprop Exp $
+# $Id: relay-bot.pl,v 1.42 2002/10/23 20:12:09 wepprop Exp $
 my $version_number = "x.x";
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
 use Net::IRC;
-use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations %config/;
+use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations $nick %config/;
 use vars qw/%Relays %ReceiveMap @auto_ops/;
 
 my $config_file_name = "relay-bot.config";
@@ -248,6 +248,10 @@ require $config_file_name;
            %config
 );
 
+# This for reverse compatibility with old config files
+
+if( defined( $nick ) ) { $config{nick} = $nick; }
+
 # Override config file settings with command line args where req'd.
 
 if ( $override{nick} ne "$unused_option" ) {
@@ -322,7 +326,12 @@ if( defined( %hosts ) ) {
 		$channel_password = "";
 	    }
 
-	    $Relays{$network}{servers} = $hosts{$network};
+            if( ref( $hosts{$network} ) ) {
+	        $Relays{$network}{servers} = $hosts{$network};
+            } else {
+		# This for reverse compatibility with obsolete config files
+                $Relays{$network}{servers} = [ $hosts{$network} ];
+	    }
 
 	    $Relays{$network}{channels}{$channel_name}{passwd}=$channel_password;
 	    $Relays{$network}{channels}{$channel_name}{group} = $group;
@@ -402,11 +411,7 @@ my $host;
 foreach $host (keys %Relays) {
     my @server;
 
-    if ( ref( $Relays{$host} ) ) {
-	@server = @{ $Relays{$host}{servers} };
-    } else {
-        @server =  ( $Relays{$host}{servers} );
-    }
+    @server = @{ $Relays{$host}{servers} };
 
     print LOGFILE "Starting up $host (@server)\n";
 
@@ -660,12 +665,12 @@ sub on_disconnect {
     }
     print LOGFILE "\n";
     my $network = $reverse_hosts{$self};
-    my $server = $self->server;
-    if ( ref( $Relays{$network} ) ) {
-	$server = $Relays{$network}{servers}->[rand @{$Relays{$network}}];
-    } else {
-	$server = $Relays{$network}{servers};
-    }
+    my @serverlist = @{ $Relays{$network}{servers} };
+    my $last_server_index = $#serverlist;
+    my $random_server_index = int( rand( $last_server_index ) );
+    
+    my $server = $serverlist[ $random_server_index ];
+    
     print LOGFILE "Connecting to $server\n";
     $self->connect(Server => $server) || on_disconnect(@_);
 }

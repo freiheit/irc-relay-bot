@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.11 2000/12/11 07:39:28 eric Exp $
+# $Id: relay-bot.pl,v 1.12 2000/12/30 00:32:52 eric Exp $
 use strict;
 
 use lib qw:/usr/local/lib/site_perl/:;

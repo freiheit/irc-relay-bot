@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.12 2000/12/30 00:32:52 eric Exp $
+# $Id: relay-bot.pl,v 1.13 2000/12/30 00:49:58 eric Exp $
 use strict;
 
 use lib qw:/usr/local/lib/site_perl/:;
@@ -347,7 +347,7 @@ sub public_msg {
     for my $server (@irc) {
 	next if $server == $self;
         for my $to (@to) {
-            $server->privmsg($to,"<$nick> $arg");
+            $server->privmsg($to,"<$nick\@$reverse_hosts{$self}> $arg");
         }
     }
 }
@@ -365,7 +365,7 @@ sub public_action {
     for my $server (@irc) {
 	next if $server == $self;
         for my $to (@to) {
-            $server->privmsg($to,"* $nick @args");
+            $server->privmsg($to,"* $nick\@$reverse_hosts{$self} @args");
         }
     }
 }
@@ -386,14 +386,24 @@ sub private_msg {
 		return;
 	}
 
-	if($arg =~ m/^[<>]?(\w{1,16})[<>]?\s+(.*)/) {
+	if($arg =~ m/^[<>]?(\w{1,16})\@(\w{1,16})[<>]?\s+(.*)/) {
+		my $to = $1;
+                my $net = $2;
+		$arg = $3;
+		print $reverse_hosts{$self}.'!'.($event->to())[0].
+			"!$nick\@$reverse_hosts{$self} -> $to\@$net: $arg";
+		if (exists $forward_hosts{$net}) {
+		    my $server = $forward_hosts{$net};
+		    $server->privmsg($to,">$nick\@$reverse_hosts{$self}< $arg");
+		}
+	} elsif($arg =~ m/^[<>]?(\w{1,16})[<>]?\s+(.*)/) {
 		my $to = $1;
 		$arg = $2;
 		print $reverse_hosts{$self}.'!'.($event->to())[0].
-			"!$nick -> $to: $arg";
+			"!$nick\@$reverse_hosts{$self} -> $to: $arg";
 		for my $server (@irc) {
 		    next if $server == $self;
-		    $server->privmsg($to,">$nick< $arg");
+		    $server->privmsg($to,">$nick\@$reverse_hosts{$self}< $arg");
 		}
 	} else {
 		print $reverse_hosts{$self}.'!'.($event->to())[0].

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.23 2002/07/04 19:29:56 freiheit Exp $
+# $Id: relay-bot.pl,v 1.24 2002/07/05 19:07:15 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
@@ -95,7 +95,7 @@ sub cmd {
 	return;
     }
 
-    print "$reverse_hosts{$host}!$who issued cmd '$cmd' args {@args}\n";
+    print "$who\@$reverse_hosts{$host} issued cmd '$cmd' args {@args}\n";
     if (lc $cmd eq 'names') {
 	my $channel = shift @args || ($event->to)[0];
 	for my $server (@irc) {
@@ -156,7 +156,7 @@ sub on_connect {
     my $self = shift;
     
     for (@relay_channels) {
-	print "$reverse_hosts{$self}!$_ joining channel\n";
+	print "$_\@$reverse_hosts{$self} joining channel\n";
 	$self->join($_);
     }
 }
@@ -191,7 +191,7 @@ sub on_names {
     my $desc = "*** $reverse_hosts{$self}!$channel".
     " names: @list";
     
-    print "$reverse_hosts{$self}!$channel names: @list\n";
+    print "$channel\@$reverse_hosts{$self} names: @list\n";
     return unless @{$cmd_pending{names}};
     my $n=0;
     for my $w (@{$cmd_pending{names}}) {
@@ -306,7 +306,7 @@ sub on_topic {
 	
         # If it's being done _to_ the channel, it's a topic change.
     } elsif ($event->type() eq 'topic' and $event->to()) {
-	print $reverse_hosts{$self}.'!'.($event->to())[0].
+	print ($event->to())[0].'@'.$reverse_hosts{$self}.
 	": $args[0]\n";
 	for my $server (@irc) {
 	    next if $server==$self;
@@ -345,12 +345,12 @@ sub public_msg {
     my $n = $self->nick;
     if ($arg =~ /^(\Q$n\E[,:]\s*)?([\^\/!]\w+)(\s|$)/i) {
 	$arg =~ s/^\Q$n\E[,:]\s*//i;
-	print "$reverse_hosts{$self}!$to[0] cmd: <$nick> $arg\n";
+	print "$to[0]\@$reverse_hosts{$self} cmd: <$nick> $arg\n";
 	&cmd($arg,$nick,$self,$event);
 	return;
     }
     
-    print "$reverse_hosts{$self}!$to[0] <$nick> $arg\n";
+    print "$to[0]\@$reverse_hosts{$self} <$nick> $arg\n";
 
     for my $server (@irc) {
 	next if $server == $self;
@@ -368,7 +368,7 @@ sub public_action {
 #    shift @args;
 
     my @to = $event->to;
-    print $reverse_hosts{$self}.'!'.($event->to())[0]." $nick @args\n";
+    print ($event->to())[0].'@'.$reverse_hosts{$self}." $nick @args\n";
     
     for my $server (@irc) {
 	next if $server == $self;
@@ -389,7 +389,7 @@ sub private_msg {
     
     if ($arg =~ /^(\Q$n\E[,:]\s*)?([\^\/]\w+)(\s|$)/i) {
 	$arg =~ s/^\Q$n\E[,:]\s*//i;
-	print "$reverse_hosts{$self}!$to[0] cmd: <$nick> $arg\n";
+	print "$to[0]\@$reverse_hosts{$self} cmd: <$nick> $arg\n";
 	&cmd($arg,$nick,$self,$event);
 	return;
     }

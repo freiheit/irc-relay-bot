@@ -1,0 +1,7 @@
+- Fix things listed in BUGS
+
+- Make more configurable.  (make most actions check for a config variable)
+
+- Add auto-rejoin on kick
+
+- Convert to POE::Component::IRC

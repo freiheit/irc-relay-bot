@@ -1,12 +1,274 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.30 2002/07/18 17:06:20 freiheit Exp $
+# $Id: relay-bot.pl,v 1.31 2002/10/13 07:41:34 freiheit Exp $
+my $version_number = "x.x";
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
 use Net::IRC;
 use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations $nick/;
+use vars qw/$echo_private_msg $echo_public_action $echo_topic/;
+use vars qw/$echo_join $echo_part $echo_nick $echo_kick $echo_cmode/;
+use vars qw/$echo_umode $echo_quit $interface_address $echo_public_msg/;
 
-require 'relay-bot.config';
+my $config_file_name = "relay-bot.config";
+
+# Command line handler
+
+my $unused_option = -1;
+
+my $set_echo_public_msg    = $unused_option;
+my $set_echo_private_msg   = $unused_option;
+my $set_echo_public_action = $unused_option;
+my $set_echo_join          = $unused_option;
+my $set_echo_part          = $unused_option;
+my $set_echo_nick          = $unused_option;
+my $set_echo_kick          = $unused_option;
+my $set_echo_cmode         = $unused_option;
+my $set_echo_umode         = $unused_option;
+my $set_echo_quit          = $unused_option;
+my $set_echo_topic         = $unused_option;
+
+my $set_interface_address = "";
+
+my $valid_args = "acefhijkmnpqtuv";
+
+for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
+
+	$interval = 1;	
+	my $arg = $ARGV[$i];	
+
+	SWITCH: {
+		if( $arg =~ /^[-+][$valid_args]*([^$valid_args])/ ) {
+			print "Invalid argument $1 contained in $arg\n";
+			print "\t-h for help.\n"; 
+			exit 1;
+		
+		}
+		if( $arg =~ /^[-+][$valid_args]+([fhiv])/ ) {
+			print "$1 may not be grouped with other args: $arg\n";
+			exit 1;
+		}
+
+		# -a
+		if( $arg =~ /^\-[$valid_args]*a/ ) {
+			$set_echo_public_action = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*a/ ) {
+			$set_echo_public_action = 1;
+		}
+		
+		# -c
+		if( $arg =~ /^\-[$valid_args]*c/ ) {
+			$set_echo_cmode = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*c/ ) {
+			$set_echo_cmode = 1;
+		}
+		
+		# -e
+		if( $arg =~ /^\-[$valid_args]*e/ ) {
+			$set_echo_public_msg = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*e/ ) {
+			$set_echo_public_msg = 1;
+		}
+
+		# -f
+		if( $arg =~ /^-f/ ) {
+			$config_file_name = $ARGV[$i+1];
+			$interval = 2;
+			next SWITCH;	
+		}
+
+		# -h
+		if( $arg =~ /^-h/ ) {
+			print "   [+|-]a      Echo public actions   ";
+			print "   [+|-]m      Echo private msgs     \n";	
+
+			print "   [+|-]c      Echo channel modes    ";
+			print "   [+|-]n      Echo nick changes     \n";	
+
+			print "   [+|-]e      Echo channel msgs     ";
+			print "   [+|-]p      Echo parts            \n";
+
+			print "   -f <fname>  Specify config file   ";
+			print "   [+|-]q      Echo quits            \n";	
+	
+			print "   -h          Command option help   ";
+			print "   [+|-]t      Echo topic            \n";
+
+			print "   -i <ipaddr> Specify interface     ";
+			print "   [+|-]u      Echo user modes       \n";	
+
+			print "   [+|-]j      Echo joins            ";
+			print "   -v          Version information   \n";
+	
+			print "   [+|-]k      Echo kicks            \n";
+
+                        print "\n+ enables option, - disables option\n";
+			exit 0;
+		}
+		
+		# -i
+		if( $arg =~ /^-i/ ) {
+			my $addr = $ARGV[$i+1];
+			if( $addr =~ /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/ ) {	
+				$set_interface_address = $addr;
+				$interval = 2;
+				next SWITCH;	
+			} else {
+				print "Invalid IP Address: $addr\n";
+				exit 1;
+			}
+		}
+
+		# -j
+		if( $arg =~ /^\-[$valid_args]*j/ ) {
+			$set_echo_join = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*j/ ) {
+			$set_echo_join = 1;
+		}
+		
+		# -k
+		if( $arg =~ /^\-[$valid_args]*k/ ) {
+			$set_echo_kick = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*k/ ) {
+			$set_echo_kick = 1;
+		}
+		
+		# -m
+		if( $arg =~ /^\-[$valid_args]*m/ ) {
+			$set_echo_private_msg = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*m/ ) {
+			$set_echo_private_msg = 1;
+		}
+
+		# -n
+		if( $arg =~ /^\-[$valid_args]*n/ ) {
+			$set_echo_nick = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*n/ ) {
+			$set_echo_nick = 1;
+		}
+		
+		# -p
+		if( $arg =~ /^\-[$valid_args]*p/ ) {
+			$set_echo_part = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*p/ ) {
+			$set_echo_part = 1;
+		}
+		
+		# -q
+		if( $arg =~ /^\-[$valid_args]*q/ ) {
+			$set_echo_quit = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*q/ ) {
+			$set_echo_quit = 1;
+		}
+		
+		# -t
+		if( $arg =~ /^\-[$valid_args]*t/ ) {
+			$set_echo_topic = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*t/ ) {
+			$set_echo_topic = 1;
+		}
+
+		# -u  
+		if( $arg =~ /^\-[$valid_args]*u/ ) {
+			$set_echo_umode = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*u/ ) {
+			$set_echo_umode = 1;
+		}
+		
+		# -v
+		if( $arg =~ /^-v/ ) {
+			print "relay-bot version $version_number\n";
+			exit 0;
+		}
+	}
+}
+
+# Config file processing
+require $config_file_name;
+
+# In case the options are not present in the config file...
+if ( !defined( $echo_public_msg ) ) {
+    $echo_public_msg = 1;
+}
+if( !defined( $echo_private_msg ) ) {
+    $echo_private_msg = 1;
+}
+if ( !defined( $echo_public_action ) ) {
+    $echo_public_action = 1;
+}
+if ( !defined( $echo_join ) ) {
+    $echo_join = 1;
+}
+if ( !defined( $echo_part ) ) {
+    $echo_part = 1;
+}
+if( !defined( $echo_nick ) ) {
+    $echo_nick = 1;
+}
+if( !defined( $echo_kick ) ) {
+    $echo_kick = 1;
+}
+if( !defined( $echo_cmode ) ) {
+    $echo_cmode = 1;
+}
+if( !defined( $echo_umode ) ) {
+    $echo_umode = 1;
+}
+if( !defined( $echo_quit ) ) {
+    $echo_quit = 1;
+}
+if( !defined( $echo_topic ) ) {
+    $echo_topic = 1;
+}
+
+# Override config file settings with command line args where req'd.
+if ( $set_echo_public_msg != $unused_option ) {
+    $echo_public_msg = $set_echo_public_msg;
+}
+if ( $set_echo_private_msg != $unused_option ) {
+    $echo_private_msg = $set_echo_private_msg;
+}
+if ( $set_echo_public_action != $unused_option ) {
+    $echo_public_action = $set_echo_public_action;
+}
+if ( $set_echo_join != $unused_option ) {
+    $echo_join = $set_echo_join;
+}
+if ( $set_echo_part != $unused_option ) {
+    $echo_part = $set_echo_part;
+}
+if ( $set_echo_nick != $unused_option ) {
+    $echo_nick = $set_echo_nick;
+}
+if ( $set_echo_kick != $unused_option ) {
+    $echo_kick = $set_echo_kick;
+}
+if ( $set_echo_cmode != $unused_option ) {
+    $echo_cmode = $set_echo_cmode;
+}
+if ( $set_echo_umode != $unused_option ) {
+    $echo_umode = $set_echo_umode;
+}
+if ( $set_echo_quit != $unused_option ) {
+    $echo_quit = $set_echo_quit;
+}
+if ( $set_echo_topic != $unused_option ) {
+    $echo_topic = $set_echo_topic;
+}
+if ( $set_interface_address ne "" ) {
+    $interface_address = $set_interface_address;
+}
 
 # Actual IRC object...
 my $irc = Net::IRC->new();
@@ -23,6 +285,7 @@ my %forward_hosts = ();
 my %reverse_hosts = ();
 
 print "Setting up hosts\n";
+my $connect;
 my $host;
 foreach $host (keys %hosts) {
     my @server;
@@ -33,15 +296,22 @@ foreach $host (keys %hosts) {
     }
     print "Starting up $host (@server)\n";
     foreach my $server (@server) {
-        my $connect =  $irc->newconn(
-				     Nick   => $nick,
-				     Ircname => "Relay-bot for @relay_channels on $host ($server)",
-				     Server => $server,
-				      # Sometimes needed with multiple
-                                      # ethernet cards. Actually problem in
-                                      # Net::IRC :
-                                     # LocalAddr => '66.92.186.143',
-				    );
+
+	if( !defined($interface_address) || ($interface_address eq "" ) ) {
+	    $connect =  $irc->newconn(
+					 Nick   => $nick,
+					 Ircname => "Relay-bot for @relay_channels on $host ($server)",
+					 Server => $server,
+	    );
+	} else {
+	    $connect =  $irc->newconn(
+					 Nick   => $nick,
+					 Ircname => "Relay-bot for @relay_channels on $host ($server)",
+					 Server => $server,
+					 LocalAddr => $interface_address,
+	    );
+	}
+
         if (defined($connect) && $connect) {
             push @irc, $connect;
 	    $forward_hosts{$host} = $connect;
@@ -291,6 +561,7 @@ for (@irc) {
 
 # Look at the topic for a channel you join.
 sub on_topic {
+    return if !$echo_topic;
     my ($self, $event) = @_;
     my @args = $event->args();
     my @to = $event->to();
@@ -345,6 +616,7 @@ for (@irc) {
 }
 
 sub public_msg {
+    return if !$echo_public_msg;
     my $self = shift;
     my $event = shift;
     
@@ -387,6 +659,7 @@ sub public_msg {
 }
 
 sub public_action {
+    return if !$echo_public_action;
     my ($self, $event) = @_;
     my ($nick, @args) = ($event->nick, $event->args);
     
@@ -414,6 +687,7 @@ sub public_action {
 }
 
 sub private_msg {
+    return if !$echo_private_msg;
     my $self = shift;
     my $event = shift;
     my @to = $event->to();
@@ -457,11 +731,19 @@ sub private_msg {
 sub on_join {
     my $self = shift;
     my $event = shift;
+
+    my ($channel) = ($event->to)[0];
     
+    # primitive.
+    if ($event->userhost =~
+	/\@adsl-63-197-80-100\.dsl\.snfc21\.pacbell\.net$/) {
+	$self->mode($channel,'+o',$event->nick);
+    }
+
+    return if !$echo_join;
+
     my $nick = $event->nick;
     return if &samenick($nick);
-    
-    my ($channel) = ($event->to)[0];
     
     my @arg = $event->args;
     
@@ -470,8 +752,6 @@ sub on_join {
            $reverse_hosts{$self}.
            ": ".$event->nick." ".$event->userhost."\n");
     
-    
-
     for my $server (@irc) {
 	next if $server==$self;
 	for my $to ($event->to) {
@@ -493,16 +773,10 @@ sub on_join {
             }
         }
     }
-    
-    # primitive.
-    if ($event->userhost =~
-	/\@adsl-63-197-80-100\.dsl\.snfc21\.pacbell\.net$/) {
-	$self->mode($channel,'+o',$event->nick);
-    }
-    
 }
 
 sub on_nick_change {
+    return if !$echo_nick;
     my $self = shift;
     my $event = shift;
     
@@ -523,6 +797,7 @@ sub on_nick_change {
 }
 
 sub on_part {
+    return if !$echo_part;
     my $self = shift;
     my $event = shift;
     
@@ -547,6 +822,7 @@ sub on_part {
 }
 
 sub on_kick {
+    return if !$echo_kick;
     my $self = shift;
     my $event = shift;
     
@@ -566,6 +842,7 @@ sub on_kick {
 }
 
 sub on_mode {
+    return if !$echo_cmode;
     my $self = shift;
     my $event = shift;
     
@@ -583,6 +860,7 @@ sub on_mode {
 }
 
 sub on_umode {
+    return if !$echo_umode;
     my $self = shift;
     my $event = shift;
     
@@ -600,6 +878,8 @@ sub on_umode {
 }
 
 sub on_quit {
+
+    return if !$echo_quit;
     my $self = shift;
     my $event = shift;
     

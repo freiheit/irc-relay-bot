@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.19 2001/06/10 06:37:58 freiheit Exp $
+# $Id: relay-bot.pl,v 1.20 2001/06/10 20:43:24 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
@@ -411,7 +411,7 @@ sub on_join {
     print( "*** join ".
            $reverse_hosts{$self}."!".
            ($event->to)[0].
-           ": ".$event->nick." ".$event->userhost);
+           ": ".$event->nick." ".$event->userhost."\n");
     
     
 

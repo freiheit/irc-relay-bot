@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.46 2002/11/02 17:30:44 wepprop Exp $
+# $Id: relay-bot.pl,v 1.47 2003/05/12 00:29:19 freiheit Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -16,6 +16,7 @@ my $unused_option = -1;
 
 my %override = (
 		nick =>              "$unused_option",
+		disconnect_sleep =>   $unused_option,
 		echo_public_msg =>    $unused_option,
 		echo_private_msg =>   $unused_option,
 		echo_public_action => $unused_option,
@@ -251,6 +252,7 @@ require $config_file_name;
 # In case the options are not present in the config file...
 %config = (
 	   nick => "relay-bot",
+           disconnect_sleep => 3,
 	   echo_public_msg => 1,
 	   echo_private_msg => 1,
 	   echo_public_action => 1,
@@ -278,6 +280,9 @@ if( defined( $nick ) ) { $config{nick} = $nick; }
 
 if ( $override{nick} ne "$unused_option" ) {
     $config{nick} = $override{nick};
+}
+if ( $override{disconnect_sleep} != $unused_option ) {
+    $config{disconnect_sleep} = $override{disconnect_sleep};
 }
 if ( $override{echo_public_msg} != $unused_option ) {
     $config{echo_public_msg} = $override{echo_public_msg};
@@ -775,7 +780,7 @@ sub on_disconnect {
     print "Sleeping";
     local $| = 1;
     foreach (1..3) {
-	sleep 1;
+	sleep $config{disconnect_sleep};
 	print ".";
     }
     print "\n";

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.26 2002/07/05 19:47:41 freiheit Exp $
+# $Id: relay-bot.pl,v 1.27 2002/07/18 15:08:24 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
@@ -339,9 +339,10 @@ sub public_msg {
     
     my @to = $event->to;
     
-    return if $arg =~ m/^\<\w+(\@\w+)?\> /;
-    return if $arg =~ m/^\* \w+(\@\w+)? /;
+    return if $arg =~ m/^\<\w+(\@\w+)?\> /; # looks like it's another relay-bot
+    return if $arg =~ m/^\*+ \w+(\@\w+)? /;  # also looks like a bot
     
+    # Look for commands:
     my $n = $self->nick;
     if ($arg =~ /^(\Q$n\E[,:]\s*)?([\^\/!]\w+)(\s|$)/i) {
 	$arg =~ s/^\Q$n\E[,:]\s*//i;

@@ -1,0 +1,19 @@
+REASON
+
+Relay-bot is a program we initially wrote because our group of friends that
+hang out on one channel could never seem to all stay on EFnet, and even if
+we could EFnet was splitting so badly at the time that it was unusable. 
+However, we couldn't readily switch to another network because not everybody
+is always online and a few people wanted to stick with EFnet because there
+were other friends of theirs still there.  So, relay-bot was born.  It
+allowed us to split our channel across 2 (actually, 3 or 4) different IRC
+networks fairly effectively.
+
+
+INSTALL
+
+Relay-bot is written in Perl, so you'll need a reasonably recent copy of
+Perl.  You'll also need a copy of Net::IRC.
+
+There's currently no real installation routine; just untar the tarball, edit
+"relay-bot.config" and run "relay-bot.pl".

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.49 2004/06/04 23:28:33 freiheit Exp $
+# $Id: relay-bot.pl,v 1.50 2005/03/18 20:36:30 freiheit Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -673,8 +673,12 @@ sub on_connect {
 }
 
 print "Adding connect handler\n";
-for (@irc) {
-    $_->add_global_handler('376', \&on_connect);
+for my $server (@irc) {
+    # 376 is "end of motd"
+    # 422 is "motd file missing"
+    for my $endofmotd (qw/376 422/) {
+        $server->add_global_handler($endofmotd, \&on_connect);
+    }
 }
 
 # Handles some messages you get when you connect

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.22 2001/08/18 00:15:41 freiheit Exp $
+# $Id: relay-bot.pl,v 1.23 2002/07/04 19:29:56 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
@@ -37,6 +37,10 @@ foreach $host (keys %hosts) {
 				     Nick   => $nick,
 				     Ircname => "Relay-bot for @relay_channels on $host ($server)",
 				     Server => $server,
+				      # Sometimes needed with multiple
+                                      # ethernet cards. Actually problem in
+                                      # Net::IRC :
+                                     # LocalAddr => '66.92.186.143',
 				    );
         if (defined($connect) && $connect) {
             push @irc, $connect;
@@ -277,7 +281,7 @@ sub on_disconnect {
 	$server = $hosts{$network};
     }
     print "Connecting to $server\n";
-    $self->connect(Server => $server);
+    $self->connect(Server => $server) || on_disconnect(@_);
 }
 
 print "Adding disconnect handler\n";

@@ -1,35 +1,60 @@
 #!/usr/bin/perl -w
 use strict;
 
+use lib qw:/usr/local/lib/site_perl/:;
+
 use Net::IRC;
 
 my $irc = Net::IRC->new();
 
 my @irc;
 
-my $efnet = $irc->newconn(Nick   => 'Fandanta',
-                          Server => 'irc.east.gblx.net',
+my @hosts = (
+    'irc.west.gblx.net', # EFnet
+
+    'atlanta.ga.US.Undernet.Org',
+    #'lasvegas.nv.us.undernet.org',
+    #'austin.tx.us.undernet.org',
+
+    # 'us.dal.net',
+
+    'irc.openprojects.net',
+
+    #'irc.chelmsford.com', # Newnet
 );
 
-my $under = $irc->newconn(Nick   => 'Fandanta',
-#                          Server => 'lasvegas.nv.us.undernet.org',
-#                          Server => 'austin.tx.us.undernet.org',
-                          Server => 'atlanta.ga.US.Undernet.Org',
-);
 
-my $dal = $irc->newconn(Nick   => 'Fandanta',
-                        Server => 'us.dal.net',
-);
+my $host;
+foreach $host (@hosts) {
+    my $connect =  $irc->newconn(Nick   => 'Fandanta', Server => $host);
+    if (defined($connect) && $connect) {
+        push @irc, $connect;
+    }
+}
 
-my $open = $irc->newconn(Nick   => 'Fandanta',
-                        Server => 'irc.openprojects.net',
-);
-
-my $newnet = $irc->newconn(Nick   => 'Fandanta',
-                           Server => 'irc.chelmsford.com',
-);
-
-push @irc, $efnet, $under, $dal, $open, $newnet;
+#my $efnet = $irc->newconn(Nick   => 'Fandanta',
+#                          Server => 'irc.west.gblx.net',
+#);
+#
+#my $under = $irc->newconn(Nick   => 'Fandanta',
+##                          Server => 'lasvegas.nv.us.undernet.org',
+##                          Server => 'austin.tx.us.undernet.org',
+#                          Server => 'atlanta.ga.US.Undernet.Org',
+#);
+#
+#my $dal = $irc->newconn(Nick   => 'Fandanta',
+#                        Server => 'us.dal.net',
+#);
+#
+#my $open = $irc->newconn(Nick   => 'Fandanta',
+#                        Server => 'irc.openprojects.net',
+#);
+#
+##my $newnet = $irc->newconn(Nick   => 'Fandanta',
+##                           Server => 'irc.chelmsford.com',
+##);
+#
+#push @irc, $efnet || (), $under || (), $dal || (), $open || (), $newnet || ();
 
 sub on_connect {
     my $self = shift;
@@ -56,18 +81,6 @@ sub on_init {
 
 for (@irc) {
     $_->add_global_handler([ 251,252,253,254,302,255 ], \&on_init);
-}
-
-# What to do when we receive a private PRIVMSG.
-sub on_msg {
-    my ($self, $event) = @_;
-    my ($nick) = $event->nick;
-
-    print "*$nick*  ", ($event->args), "\n";
-}
-
-for (@irc) {
-    $_->add_handler('msg',    \&on_msg);
 }
 
 # Prints the names of people in a channel when we enter.
@@ -170,7 +183,7 @@ sub public_msg {
     my @to = $event->to;
 
     return if $arg =~ m/^\<\w+\> /;
-    return if $arg =~ m/\* \w+ /;
+    return if $arg =~ m/^\* \w+ /;
 
     print "<$nick> $arg\n";
 
@@ -186,8 +199,8 @@ sub public_action {
     my ($self, $event) = @_;
     my ($nick, @args) = ($event->nick, $event->args);
 
-    print "ARGS: ", join(':', @args), "\n";
-    shift @args;
+#    print "ARGS: ", join(':', @args), "\n";
+#    shift @args;
 
     my @to = $event->to;
 
@@ -200,10 +213,32 @@ sub public_action {
     }
 }
 
+sub private_msg {
+    my $self = shift;
+    my $event = shift;
+
+    my $nick = $event->nick;
+    my @arg = $event->args;
+    my $arg = "@arg";
+
+    print "PRIV: $nick: $arg\n";
+
+    if($arg =~ m/^[<>]?(\w+)[<>]?\s+(.*)/) {
+        my $to = $1;
+        my $arg = $2;
+        print ">$nick->$to< $arg\n";
+        for my $server (@irc) {
+    	    next if $server == $self;
+            $server->privmsg($to,">$nick< $arg");
+        }
+    }
+}
+
 for (@irc) {
-    $_->add_handler('public', \&public_msg);
+    $_->add_handler('public',  \&public_msg);
+    $_->add_handler('msg',     \&private_msg);
     $_->add_handler('caction', \&public_action);
 }
 
-print "starting...\n";
+print "starting with ",Net::IRC->VERSION,"\n";
 $irc->start;

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.44 2002/10/24 22:45:22 wepprop Exp $
+# $Id: relay-bot.pl,v 1.45 2002/10/26 18:38:51 wepprop Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -471,7 +471,7 @@ sub cmd_auth {
     0;
 }
 
-my @allcmd = ('names','restart','die','quit','leave','part','join');
+my @allcmd = ('names','restart','die','quit','leave','part','join','add');
 my %cmd_map = ( 'die' => 'quit', 'leave' => 'part', map { ($_=>$_) } @allcmd );
 my @permdenied_msg = ( 'Permission denied.', 'Insufficient privelege',
 			'u r ! l33t w1t m3' );
@@ -509,38 +509,81 @@ sub cmd {
 	    print LOGFILE "/// names command issued on $channel\n";
 	    $server->names($channel);
 	}
-    } elsif ($cmd eq 'join') {
-	my $channel = shift @args || return;
+    } 
+    elsif ($cmd eq 'join') {
+	my $channel_or_group = shift @args || return;
 	my $network = shift @args || '';
+	my @networks = keys %Relays;
+	my @groups   = keys %ReceiveMap;
+
 	$network eq 'here' and $network = $reverse_hosts{$host};
-	
-	unless (grep($_ eq $channel,@relay_channels)) {
-	    $host->privmsg(($event->to)[0],
-			   "$who: I'm not allowed in $channel.");
-	    return;
-	}
-	if ($network and $forward_hosts{$network}) {
-	    $forward_hosts{$network}->join($channel);
-	} else {
-	    for my $server (@irc) {
-		push @{$cmd_pending{'join'}},
-		[ $mode eq 'public' ? ($event->to)[0] : $who,
-		  $server, $host, $event, $channel ];
-		$server->join($channel);
+
+	if( $network and $forward_hosts{$network} ) {
+	    my $channel = $channel_or_group;
+	    my @channels = keys %{ $Relays{$network}{channels} };
+
+	    if( grep( $_ eq $channel, @channels ) ) {
+		$forward_hosts{$network}->join($channel);
+	    } 
+	    else {
+		$host->privmsg(($event->to)[0],
+			       "$who: I'm not allowed in $channel"."@"."$network.");
+	    }
+	} 
+	else {
+	    my $group = $channel_or_group;
+
+	    if( grep( $_ eq $group, @groups ) ) {
+		foreach my $network (keys %{ $ReceiveMap{$group} } ) {
+		    foreach my $channel (keys %{ $ReceiveMap{$group}{$network} } ) {
+			my $server = $forward_hosts{$network};
+			$server->join($channel);
+
+#			push @{$cmd_pending{'join'}},
+#			    [ $mode eq 'public' ? ($event->to)[0] : $who,
+#			      $server, $host, $event, $channel ];
+		    }
+		}
+	    } 
+	    else {
+		$host->privmsg(($event->to)[0],
+			       "Invalid argument: $group is not a valid group\n");
 	    }
 	}
     } elsif ($cmd eq 'part') {
-	my $channel = shift @args || return;
-	grep($_ eq $channel,@relay_channels) or return; # report error here
+	my $channel_or_group = shift @args || return;
 	my $network = shift @args || '';
-	if ($network and $forward_hosts{$network}) {
-	    $forward_hosts{$network}->part($channel);
-	} else {
-	    for my $server (@irc) {
-		push @{$cmd_pending{part}},
-		[ $mode eq 'public' ? ($event->to)[0] : $who,
-		  $server, $host, $event, $channel ];
-		$server->part($channel);
+	my @networks = keys %Relays;
+	my @groups   = keys %ReceiveMap;
+
+	$network eq 'here' and $network = $reverse_hosts{$host};
+
+	if( $network and $forward_hosts{$network} ) {
+	    my $channel = $channel_or_group;
+	    my @channels = keys %{ $Relays{$network}{channels} };
+
+	    if( grep( $_ eq $channel, @channels ) ) {
+		$forward_hosts{$network}->part($channel);
+	    } 
+	    else {
+		$host->privmsg(($event->to)[0],
+			       "$who: I'm not in $channel"."@"."$network.");
+	    }
+	} 
+	else {
+	    my $group = $channel_or_group;
+
+	    if( grep( $_ eq $group, @groups ) ) {
+		foreach my $network (keys %{ $ReceiveMap{$group} } ) {
+		    foreach my $channel (keys %{ $ReceiveMap{$group}{$network} } ) {
+			my $server = $forward_hosts{$network};
+			$server->part($channel);
+		    }
+		}
+	    } 
+	    else {
+		$host->privmsg(($event->to)[0],
+			       "Invalid argument: $group is not a valid group\n");
 	    }
 	}
     } elsif ($cmd eq 'quit' or $cmd eq 'restart') {
@@ -551,6 +594,38 @@ sub cmd {
 	$cmd eq 'quit' and exit;
 	sleep 5;
 	exec($0,@ARGV) || exec('perl',$0,@ARGV) || die "exec($0,@ARGV): $!";
+    } elsif( $cmd eq 'add' ) {
+	my $channel  = shift @args || return;
+	my $network  = shift @args || return;
+	my $group    = shift @args || return;
+	my $rcv      = shift @args || 1;
+	my $xmit     = shift @args || 1;
+	my $password = shift @args || '';
+
+	unless( $rcv =~ /^[01]$/ ) {
+	    $host->privmsg( ($event->to)[0],
+			    "Invalid ADD argument: rcv must be 1 or 0\n");
+	    return;
+	}
+	unless( $xmit =~ /^[01]$/ ) {
+	    $host->privmsg( ($event->to)[0],
+			    "Invalid ADD argument: xmit must be 1 or 0\n");
+	    return;
+	}
+	unless( $forward_hosts{$network} ) {
+	    $host->privmsg( ($event->to)[0],
+			    "Invalid ADD argument host: $network not in list\n");
+	    return;
+	}
+
+	print LOGFILE "ADDing $channel"."@"."$network in $group with password $password; rcv $rcv, xmit $xmit\n";
+
+	$Relays{$network}{channels}{$channel}{passwd} = $password;
+	$Relays{$network}{channels}{$channel}{group}  = $group;
+	$Relays{$network}{channels}{$channel}{rcv}    = $rcv;
+	$Relays{$network}{channels}{$channel}{xmit}   = $xmit;
+
+        $ReceiveMap{$group}{$network}{$channel} = $rcv;
     }
 }
 

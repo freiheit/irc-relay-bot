@@ -1,11 +1,12 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.35 2002/10/16 00:15:59 freiheit Exp $
+# $Id: relay-bot.pl,v 1.36 2002/10/16 22:03:16 wepprop Exp $
 my $version_number = "x.x";
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
 use Net::IRC;
 use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations $nick %config/;
+use vars qw/@auto_ops/;
 
 my $config_file_name = "relay-bot.config";
 
@@ -734,10 +735,15 @@ sub on_join {
 
     my ($channel) = ($event->to)[0];
     
-    # primitive.
-    if ($event->userhost =~
-	/\@adsl-63-197-80-100\.dsl\.snfc21\.pacbell\.net$/) {
-	$self->mode($channel,'+o',$event->nick);
+    # Auto-ops - still primitive, requires regexp knowledge
+
+    if( defined( @auto_ops ) ) {
+	foreach my $auto_op_member (@auto_ops) {
+	    if ( $event->{userhost} =~ /^$auto_op_member$/ ) {
+		$self->mode($channel,'+o',$event->nick);
+		last;
+	    }
+	}
     }
 
     return unless $config{echo_join};

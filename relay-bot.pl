@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.40 2002/10/22 03:48:27 wepprop Exp $
+# $Id: relay-bot.pl,v 1.41 2002/10/23 00:49:38 wepprop Exp $
 my $version_number = "x.x";
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
 use Net::IRC;
-use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations $nick %config/;
+use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations %config/;
 use vars qw/%Relays %ReceiveMap @auto_ops/;
 
 my $config_file_name = "relay-bot.config";
@@ -15,6 +15,7 @@ my $config_file_name = "relay-bot.config";
 my $unused_option = -1;
 
 my %override = (
+	       nick =>              "$unused_option",
 	       echo_public_msg =>    $unused_option,
 	       echo_private_msg =>   $unused_option,
 	       echo_public_action => $unused_option,
@@ -29,10 +30,9 @@ my %override = (
 	       daemonize =>          $unused_option,
 	       logfile =>           "$unused_option",
 	       interface_address =>  "",
-
 );
 
-my $valid_args = "acefdhijklmnpqtuv";
+my $valid_args = "acdefhijklmnpqtuvw";
 
 for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 
@@ -46,7 +46,7 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			exit 1;
 		
 		}
-		if( $arg =~ /^[-+][$valid_args]+([fhilv])/ ) {
+		if( $arg =~ /^[-+][$valid_args]+([fhilvw])/ ) {
 			print "$1 may not be grouped with other args: $arg\n";
 			exit 1;
 		}
@@ -73,7 +73,10 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 		}
 		if( $arg =~ /^\+[$valid_args]*d/ ) {
 			$override{daemonize} = 1;
-		}
+
+
+
+		    }
 		
 		# -e
 		if( $arg =~ /^\-[$valid_args]*e/ ) {
@@ -116,7 +119,8 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			print "   [+|-]j      Echo joins            ";
 			print "   -v          Version information   \n";
 
-			print "   [+|-]k      Echo kicks            \n";
+			print "   [+|-]k      Echo kicks            ";
+			print "   -w nick     Specify nick/handle   \n";
 
                         print "\n+ enables option, - disables option\n";
 			exit 0;
@@ -211,6 +215,13 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			print "relay-bot version $version_number\n";
 			exit 0;
 		}
+
+		# -w
+		if( $arg =~ /^-w/ ) {
+			$override{nick} = $ARGV[$i+1];
+			$interval = 2;
+			next SWITCH;	
+		}
 	}
 }
 
@@ -219,6 +230,7 @@ require $config_file_name;
 
 # In case the options are not present in the config file...
 %config = (
+	   nick => "relay-bot",
 	   echo_public_msg => 1,
 	   echo_private_msg => 1,
 	   echo_public_action => 1,
@@ -237,6 +249,10 @@ require $config_file_name;
 );
 
 # Override config file settings with command line args where req'd.
+
+if ( $override{nick} ne "$unused_option" ) {
+    $config{nick} = $override{nick};
+}
 if ( $override{echo_public_msg} != $unused_option ) {
     $config{echo_public_msg} = $override{echo_public_msg};
 }
@@ -398,13 +414,13 @@ foreach $host (keys %Relays) {
 
 	if( $config{interface_address} eq "" ) {
 	    $connect =  $irc->newconn(
-					 Nick   => $nick,
+					 Nick   => $config{nick},
 					 Ircname => "Relay-bot for @relay_channels on $host ($server)",
 					 Server => $server,
 	    );
 	} else {
 	    $connect =  $irc->newconn(
-					 Nick   => $nick,
+					 Nick   => $config{nick},
 					 Ircname => "Relay-bot for @relay_channels on $host ($server)",
 					 Server => $server,
 					 LocalAddr => $config{interface_address},

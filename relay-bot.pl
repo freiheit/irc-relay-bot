@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.8 2000/11/17 01:15:05 eric Exp $
+# $Id: relay-bot.pl,v 1.9 2000/11/28 06:55:06 eric Exp $
 use strict;
 
 use lib qw:/usr/local/lib/site_perl/:;
@@ -11,7 +11,9 @@ my $irc = Net::IRC->new();
 my @irc;
 
 my @hosts = (
-    'irc.west.gblx.net', # EFnet
+#    'irc.west.gblx.net', # EFnet
+    'irc.east.gblx.net', # EFnet
+#    'irc.lightning.net', # EFnet
 
     'atlanta.ga.US.Undernet.Org',
     #'lasvegas.nv.us.undernet.org',
@@ -143,6 +145,12 @@ sub on_disconnect {
 
         print "Disconnected from ", $event->from(), " (",
               ($event->args())[0], "). Attempting to reconnect...\n";
+	print "Sleeping";
+	foreach (1..10) {
+		sleep 1;
+		print ".";
+	}
+	print "\n";
         $self->connect();
 }
 

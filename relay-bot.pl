@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.45 2002/10/26 18:38:51 wepprop Exp $
+# $Id: relay-bot.pl,v 1.46 2002/11/02 17:30:44 wepprop Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -15,25 +15,26 @@ my $config_file_name = "relay-bot.config";
 my $unused_option = -1;
 
 my %override = (
-	       nick =>              "$unused_option",
-	       echo_public_msg =>    $unused_option,
-	       echo_private_msg =>   $unused_option,
-	       echo_public_action => $unused_option,
-	       echo_join =>          $unused_option,
-	       echo_part =>          $unused_option,
-	       echo_nick =>          $unused_option,
-	       echo_kick =>          $unused_option,
-	       echo_cmode =>         $unused_option,
-	       echo_umode =>         $unused_option,
-	       echo_quit =>          $unused_option,
-	       echo_set_topic =>     $unused_option,
-	       echo_topic =>         $unused_option,
-	       daemonize =>          $unused_option,
-	       logfile =>           "$unused_option",
-	       interface_address =>  "",
+		nick =>              "$unused_option",
+		echo_public_msg =>    $unused_option,
+		echo_private_msg =>   $unused_option,
+		echo_public_action => $unused_option,
+		echo_join =>          $unused_option,
+		echo_part =>          $unused_option,
+		echo_nick =>          $unused_option,
+		echo_kick =>          $unused_option,
+		echo_cmode =>         $unused_option,
+		echo_umode =>         $unused_option,
+		echo_quit =>          $unused_option,
+		echo_set_topic =>     $unused_option,
+		echo_topic =>         $unused_option,
+		daemonize =>          $unused_option,
+		logfile =>           "$unused_option",
+		logfile_buffering =>  $unused_option,
+		interface_address =>  "",
 );
 
-my $valid_args = "acdefhijklmnpqstuvw";
+my $valid_args = "abcdefhijklmnpqstuvw";
 
 for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 
@@ -58,6 +59,14 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 		}
 		if( $arg =~ /^\+[$valid_args]*a/ ) {
 			$override{echo_public_action} = 1;
+		}
+
+		# -b enable/disable logfile buffering
+		if( $arg =~ /^\-[$valid_args]*b/ ) {
+			$override{logfile_buffering} = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*b/ ) {
+			$override{logfile_buffering} = 1;
 		}
 		
 		# -c enable/disable echo of channel mode changes
@@ -94,6 +103,9 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 		# -h program help
 		if( $arg =~ /^-h/ ) {
 			print "   [+|-]a      Echo public actions   ";
+			print "   -l <fname>  Specify log file      \n";
+
+			print "   [+|-]b      Buffer log output     ";
 			print "   [+|-]m      Echo private msgs     \n";
 
 			print "   [+|-]c      Echo channel modes    ";
@@ -101,26 +113,25 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 
 			print "   [+|-]d      Run in background     ";
 			print "   [+|-]p      Echo parts            \n";
-
+	
 			print "   [+|-]e      Echo channel msgs     ";
 			print "   [+|-]q      Echo quits            \n";	
-	
+
 			print "   -f <fname>  Specify config file   ";
 			print "   [+|-]s      Set topic by echo     \n";
 
 			print "   -h          Command option help   ";
 			print "   [+|-]t      Echo topic change     \n";
 
-			print "   -i <ipaddr> Specify interface     ";
+			print "   -i <ipaddr> Specify interface     ";	
 			print "   [+|-]u      Echo user modes       \n";
-	
+
 			print "   [+|-]j      Echo joins            ";
 			print "   -v          Version information   \n";
 
 			print "   [+|-]k      Echo kicks            ";
 			print "   -w nick     Specify nick/handle   \n";
 
-			print "   -l <fname>  Specify log file      \n";
 
                         print "\n+ enables option, - disables option\n";
 			exit 0;
@@ -254,6 +265,7 @@ require $config_file_name;
 	   echo_topic => 1,
 	   daemonize => 0,
 	   interface_address => "",
+	   logfile_buffering => 1,
            # Anything in here will override the above
            %config
 );
@@ -311,6 +323,9 @@ if ( $override{daemonize} != $unused_option ) {
 }
 if ( $override{logfile} ne "$unused_option" ) {
     $config{logfile} = $override{logfile};
+}
+if ( $override{logfile_buffering} != $unused_option ) {
+    $config{logfile_buffering} = $override{logfile_buffering};
 }
 
 # This block of code exists to provide reverse compatibility with
@@ -387,26 +402,38 @@ foreach my $network (keys %Relays) {
     }
 }
 
+# If requested, run in the background.
+# Note:  The Proc::Daemon module sets umask 0
+# and chdir's to \, which breaks logging unless
+# the umask and PWD are restored.
+
+if( $config{daemonize} ) {
+    my $current_umask = umask;
+    my $current_dir = $ENV{PWD};
+
+    require Proc::Daemon;
+    Proc::Daemon::Init();
+    
+    umask $current_umask;
+    chdir $current_dir;
+}
+
+# Set up logging
+
+if( $config{logfile} ne "" ) {
+    open( LOGFILE, "> ".$config{logfile} ) or die "Can't open logfile: <$!>";
+    select( LOGFILE );
+    $| = 1 unless $config{logfile_buffering};
+    open( STDERR, ">&LOGFILE" );
+}
+
+# Interrupt handler
+
+$SIG{INT} = \&signal_interrupt;
+
 # Actual IRC object...
 my $irc = Net::IRC->new();
 print "Created Net::IRC object\n";
-
-if ( $config{daemonize} ) {
-    require Proc::Daemon;
-    Proc::Daemon::Init();
-}
-
-# Set up logging 
-
-my $log_fspec;
-
-if( $config{logfile} eq "" ) {
-    $log_fspec = "> -";
-}else {
-    $log_fspec = "> ".$config{logfile};
-}
-
-open(LOGFILE, $log_fspec) or die "Can't open logfile: <$!>";  
 
 # Actual IRC connections kept here, kinda...
 my @irc;
@@ -418,7 +445,7 @@ my %cmd_pending = (
 my %forward_hosts = ();
 my %reverse_hosts = ();
 
-print LOGFILE "Setting up hosts\n";
+print "Setting up hosts\n";
 my $connect;
 my $host;
 foreach $host (keys %Relays) {
@@ -426,7 +453,7 @@ foreach $host (keys %Relays) {
 
     @server = @{ $Relays{$host}{servers} };
 
-    print LOGFILE "Starting up $host (@server)\n";
+    print "Starting up $host (@server)\n";
 
     foreach my $server (@server) {
 
@@ -449,14 +476,14 @@ foreach $host (keys %Relays) {
             push @irc, $connect;
 	    $forward_hosts{$host} = $connect;
             $reverse_hosts{"$connect"} = $host;
-            print LOGFILE "$host ($server) successful\n";
+            print "$host ($server) successful\n";
 	    last;
         } else {
-	    print LOGFILE "$host ($server) failed\n";
+	    print "$host ($server) failed\n";
         }
     }
 }
-print LOGFILE "Done with hosts\n";
+print "Done with hosts\n";
 
 sub cmd_auth {
     my ($nuh,$cmd) = @_;
@@ -491,14 +518,14 @@ sub cmd {
     }
     unless (&cmd_auth("$who!".$event->userhost,$cmd)) {
 	for ($event->to) {
-	    print LOGFILE "\t$who!".$event->userhost." lacks authorization\n";
+	    print "\t$who!".$event->userhost." lacks authorization\n";
 	    $host->privmsg($_,"$who: $cmd: ".
 			   @permdenied_msg[int rand($#permdenied_msg+1)]);
 	}
 	return;
     }
 
-    print LOGFILE "$who\@$reverse_hosts{$host} issued cmd '$cmd' args {@args}\n";
+    print "$who\@$reverse_hosts{$host} issued cmd '$cmd' args {@args}\n";
     if (lc $cmd eq 'names') {
 	my $channel = shift @args || ($event->to)[0];
 	for my $server (@irc) {
@@ -506,7 +533,7 @@ sub cmd {
 	    push @{$cmd_pending{names}},
 	    [ $mode eq 'public' ? ($event->to)[0] : $who,
 	      $server, $host, $event ];
-	    print LOGFILE "/// names command issued on $channel\n";
+	    print "/// names command issued on $channel\n";
 	    $server->names($channel);
 	}
     } 
@@ -618,7 +645,7 @@ sub cmd {
 	    return;
 	}
 
-	print LOGFILE "ADDing $channel"."@"."$network in $group with password $password; rcv $rcv, xmit $xmit\n";
+	print "ADDing $channel"."@"."$network in $group with password $password; rcv $rcv, xmit $xmit\n";
 
 	$Relays{$network}{channels}{$channel}{passwd} = $password;
 	$Relays{$network}{channels}{$channel}{group}  = $group;
@@ -635,12 +662,12 @@ sub on_connect {
     my $network = $reverse_hosts{$self};
     
     foreach my $channel (keys %{ $Relays{$network}{channels} } ) {
-	print LOGFILE "Joining channel $channel on network $network\n";
+	print "Joining channel $channel on network $network\n";
 	$self->join($channel." " .$Relays{$network}{channels}{$channel}{passwd} );
     }
 }
 
-print LOGFILE "Adding connect handler\n";
+print "Adding connect handler\n";
 for (@irc) {
     $_->add_global_handler('376', \&on_connect);
 }
@@ -651,10 +678,10 @@ sub on_init {
     my (@args) = ($event->args);
     shift (@args);
     
-    print LOGFILE "*** @args\n";
+    print "*** @args\n";
 }
 
-print LOGFILE "Adding init handler\n";
+print "Adding init handler\n";
 for (@irc) {
     $_->add_global_handler([ 251,252,253,254,302,255 ], \&on_init);
 }
@@ -670,13 +697,13 @@ sub on_names {
     my $desc = "*** $channel\@$reverse_hosts{$self}".
     " names: @list";
     
-    print LOGFILE "$channel\@$reverse_hosts{$self} names: @list\n";
+    print "$channel\@$reverse_hosts{$self} names: @list\n";
     return unless @{$cmd_pending{names}};
     my $n=0;
     for my $w (@{$cmd_pending{names}}) {
 	if ($w->[1] == $self and
 	    ($w->[3]->to)[0] eq $channel) {
-	    print LOGFILE "/// command channel=$channel who=$w->[0]\n";
+	    print "/// command channel=$channel who=$w->[0]\n";
 	    $w->[2]->privmsg($w->[0],$desc);
 	    splice(@{$cmd_pending{names}},$n,1);
 	    last;
@@ -687,12 +714,12 @@ sub on_names {
 	next if $server == $self;
 	$server->privmsg(($event->to)[0],$desc);
 #	for my $to ($event->to) {
-#	    print LOGFILE "/// privmsg to=$to desc=$desc\n";
+#	    print "/// privmsg to=$to desc=$desc\n";
 #       }
     }
 }
 
-print LOGFILE "Adding names handler\n";
+print "Adding names handler\n";
 for (@irc) {
     $_->add_global_handler(353, \&on_names);
 }
@@ -702,12 +729,12 @@ sub on_ping {
     my ($self, $event) = @_;
     my $nick = $event->nick;
     
-    print LOGFILE "$reverse_hosts{$self} ping from $nick\n";
+    print "$reverse_hosts{$self} ping from $nick\n";
     
     $self->ctcp_reply($nick, join (' ', ('PING', $event->args)));
 }
 
-print LOGFILE "Adding ping handler\n";
+print "Adding ping handler\n";
 for (@irc) {
     $_->add_handler('cping',  \&on_ping);
 }
@@ -719,10 +746,10 @@ sub on_ping_reply {
     my ($nick) = $event->nick;
     
     $args = time - $args;
-    print LOGFILE "*** CTCP PING reply from $nick: $args sec.\n";
+    print "*** CTCP PING reply from $nick: $args sec.\n";
 }
 
-print LOGFILE "Adding ping reply handler\n";
+print "Adding ping reply handler\n";
 for (@irc) {
     $_->add_handler('crping', \&on_ping_reply);
 }
@@ -734,7 +761,7 @@ sub on_nick_taken {
     $self->nick(substr($self->nick, -1) . substr($self->nick, 0, 8));
 }
 
-print LOGFILE "Adding nick taken handler\n";
+print "Adding nick taken handler\n";
 for (@irc) {
     $_->add_global_handler(433, \&on_nick_taken);
 }
@@ -743,15 +770,15 @@ for (@irc) {
 sub on_disconnect {
     my ($self, $event) = @_;
     
-    print LOGFILE "Disconnected from ", $event->from(), " (",
+    print "Disconnected from ", $event->from(), " (",
     ($event->args())[0], "). Attempting to reconnect...\n";
-    print LOGFILE "Sleeping";
+    print "Sleeping";
     local $| = 1;
     foreach (1..3) {
 	sleep 1;
-	print LOGFILE ".";
+	print ".";
     }
-    print LOGFILE "\n";
+    print "\n";
     my $network = $reverse_hosts{$self};
     my @serverlist = @{ $Relays{$network}{servers} };
     my $last_server_index = $#serverlist;
@@ -759,11 +786,11 @@ sub on_disconnect {
     
     my $server = $serverlist[ $random_server_index ];
     
-    print LOGFILE "Connecting to $server\n";
+    print "Connecting to $server\n";
     $self->connect(Server => $server) || on_disconnect(@_);
 }
 
-print LOGFILE "Adding disconnect handler\n";
+print "Adding disconnect handler\n";
 for (@irc) {
     $_->add_global_handler('disconnect', \&on_disconnect);
 }
@@ -781,12 +808,13 @@ sub on_topic {
     }
     
     if ($event->type() eq 'notopic') {
-	print LOGFILE "No topic set for $args[1].\n";
+	print "No topic set for $args[1].\n";
 	
         # If it's being done _to_ the channel, it's a topic change.
     } elsif ($event->type() eq 'topic' and $event->to()) {
-	print LOGFILE ( ($event->to())[0] . '@'.$reverse_hosts{$self}.
-	": $args[0]\n" );
+
+	print "" . ($event->to())[0] . '@'.$reverse_hosts{$self}.
+	": $args[0]\n";
 
         my $original_network = $reverse_hosts{$self};
 
@@ -842,12 +870,12 @@ sub on_topic {
             }
         }
     } else {
-	print LOGFILE "The topic for $args[1] is \"$args[2]\".\n";
+	print "The topic for $args[1] is \"$args[2]\".\n";
     }
 }
 
 if( $config{echo_topic} || $config{echo_set_topic} ) {
-    print LOGFILE "Adding topic handler\n";
+    print "Adding topic handler\n";
     for (@irc) {
         $_->add_handler('topic',   \&on_topic);
     }
@@ -870,12 +898,12 @@ sub public_msg {
     my $n = $self->nick;
     if ($arg =~ /^(\Q$n\E[,:]\s*)?([\^\/!]\w+)(\s|$)/i) {
 	$arg =~ s/^\Q$n\E[,:]\s*//i;
-	print LOGFILE "$to[0]\@$reverse_hosts{$self} cmd: <$nick> $arg\n";
+	print "$to[0]\@$reverse_hosts{$self} cmd: <$nick> $arg\n";
 	&cmd($arg,$nick,$self,$event);
 	return;
     }
     
-    print LOGFILE "$to[0]\@$reverse_hosts{$self} <$nick> $arg\n";
+    print "$to[0]\@$reverse_hosts{$self} <$nick> $arg\n";
 
     my $original_network = $reverse_hosts{$self};
 
@@ -921,11 +949,11 @@ sub public_action {
     my ($self, $event) = @_;
     my ($nick, @args) = ($event->nick, $event->args);
     
-#    print LOGFILE "ARGS: ", join(':', @args), "\n";
+#    print "ARGS: ", join(':', @args), "\n";
 #    shift @args;
 
     my @to = $event->to;
-    print LOGFILE ( ($event->to())[0].'@'.$reverse_hosts{$self}." $nick @args\n");
+    print ( ($event->to())[0].'@'.$reverse_hosts{$self}." $nick @args\n");
     
     my $original_network = $reverse_hosts{$self};
 
@@ -977,7 +1005,7 @@ sub private_msg {
     
     if ($arg =~ /^(\Q$n\E[,:]\s*)?([\^\/]\w+)(\s|$)/i) {
 	$arg =~ s/^\Q$n\E[,:]\s*//i;
-	print LOGFILE "$to[0]\@$reverse_hosts{$self} cmd: <$nick> $arg\n";
+	print "$to[0]\@$reverse_hosts{$self} cmd: <$nick> $arg\n";
 	&cmd($arg,$nick,$self,$event);
 	return;
     }
@@ -986,8 +1014,8 @@ sub private_msg {
 	my $to = $1;
 	my $net = $2;
 	$arg = $3;
-	print LOGFILE ( ($event->to())[0].'@'.$reverse_hosts{$self}.
-	"!$nick\@$reverse_hosts{$self} -> $to\@$net: $arg\n");
+	print "". ($event->to())[0].'@'.$reverse_hosts{$self}.
+	"!$nick\@$reverse_hosts{$self} -> $to\@$net: $arg\n";
 	if (exists $forward_hosts{$net}) {
 	    my $server = $forward_hosts{$net};
 	    $server->privmsg($to,">$nick\@$reverse_hosts{$self}< $arg");
@@ -995,15 +1023,15 @@ sub private_msg {
     } elsif($arg =~ m/^[<>]?(\w{1,16})[<>]?\s+(.*)/) {
 	my $to = $1;
 	$arg = $2;
-	print LOGFILE ( ($event->to())[0].'@'.$reverse_hosts{$self}.
-	"!$nick\@$reverse_hosts{$self} -> $to: $arg\n");
+	print "". ($event->to())[0].'@'.$reverse_hosts{$self}.
+	"!$nick\@$reverse_hosts{$self} -> $to: $arg\n";
 	for my $server (@irc) {
 	    next if $server == $self;
 	    $server->privmsg($to,">$nick\@$reverse_hosts{$self}< $arg");
 	}
     } else {
-	print LOGFILE ( ($event->to())[0].'@'.$reverse_hosts{$self}.
-	"!$nick: $arg\n");
+	print "". ($event->to())[0].'@'.$reverse_hosts{$self}.
+	"!$nick: $arg\n";
     }
 }
 
@@ -1031,10 +1059,10 @@ sub on_join {
     
     my @arg = $event->args;
     
-    print LOGFILE ( "*** join ".
+    print "*** join ".
            ($event->to)[0].'@'.
            $reverse_hosts{$self}.
-           ": ".$event->nick." ".$event->userhost."\n");
+           ": ".$event->nick." ".$event->userhost."\n";
     
     my $original_network = $reverse_hosts{$self};
 
@@ -1086,7 +1114,7 @@ sub on_nick_change {
     my $event = shift;
     my @to = $event->to();
     
-    print LOGFILE ( ($event->to)[0].'@'.$reverse_hosts{$self}." nick change ".
+    print "".( ($event->to)[0].'@'.$reverse_hosts{$self}." nick change ".
     $event->nick." ".$event->userhost.join(' ',$event->args)."\n");
     
     return if &samenick($event->nick);
@@ -1117,7 +1145,7 @@ sub on_nick_change {
 					  ($event->to)[0].'@'.$reverse_hosts{$self}.
 					  "!".$event->userhost.' to '.
 					  join(' ',$event->args));
-		     }
+		    }
 		}
 	    }
 	}
@@ -1129,12 +1157,12 @@ sub on_part {
     my $event = shift;
     my @to = $event->to();
     
-    print LOGFILE ( ($event->to)[0].'@'.$reverse_hosts{$self}." chan part ".
+    print "".( ($event->to)[0].'@'.$reverse_hosts{$self}." chan part ".
     $event->nick." ".$event->userhost."\n");
     
     return if &samenick($event->nick);
     
-    print LOGFILE ( "*** part ".
+    print "".( "*** part ".
 	   ($event->to)[0].'@'.
 	   $reverse_hosts{$self}.
 	   ": ".$event->nick." ".$event->userhost);
@@ -1176,7 +1204,7 @@ sub on_kick {
     my $event = shift;
     my @to = $event->to();
     
-    print LOGFILE $reverse_hosts{$self}."!".($event->to)[0]." kick ".
+    print $reverse_hosts{$self}."!".($event->to)[0]." kick ".
     $event->nick." ".join(' ',$event->args)."\n";
     
     return if &samenick($event->nick);
@@ -1218,7 +1246,7 @@ sub on_cmode {
     my $event = shift;
     my @to = $event->to();
     
-    print LOGFILE $reverse_hosts{$self}."!".($event->to)[0]." mode ".
+    print $reverse_hosts{$self}."!".($event->to)[0]." mode ".
     $event->nick." ".join(' ',$event->args)."\n";
     
     my $original_network = $reverse_hosts{$self};
@@ -1258,7 +1286,7 @@ sub on_umode {
     my $event = shift;
     my @to = $event->to();
     
-    print LOGFILE $reverse_hosts{$self}."!".($event->to)[0]." umode ".
+    print $reverse_hosts{$self}."!".($event->to)[0]." umode ".
     $event->nick." ".join(' ',$event->args)."\n";
     
     my $original_network = $reverse_hosts{$self};
@@ -1298,7 +1326,7 @@ sub on_quit {
     my $event = shift;
     my @to = $event->to();
     
-    print LOGFILE $reverse_hosts{$self}."!>".($event->to)[0]."< quit ".
+    print $reverse_hosts{$self}."!>".($event->to)[0]."< quit ".
     $event->nick." ".join(' ',$event->args)."\n";
     
     my $original_network = $reverse_hosts{$self};
@@ -1333,7 +1361,7 @@ sub on_quit {
     }
 }
 
-print LOGFILE "Adding other handlers\n";
+print "Adding other handlers\n";
 for (@irc) {
     if ($config{echo_public_msg}) {
         $_->add_handler('public',  \&public_msg);
@@ -1376,5 +1404,13 @@ sub samenick {
     return 0;
 }
 
-print LOGFILE "starting with ",Net::IRC->VERSION,"\n";
+sub signal_interrupt {
+    my $signal = shift;
+    print "Exiting due to SIG$signal\n";
+    my $logfile = select;
+    close( $logfile );
+    exit 0;
+    }
+
+print "starting with ",Net::IRC->VERSION,"\n";
 $irc->start;

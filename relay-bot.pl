@@ -1,15 +1,11 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.32 2002/10/14 17:49:45 freiheit Exp $
+# $Id: relay-bot.pl,v 1.33 2002/10/15 04:41:01 wepprop Exp $
 my $version_number = "x.x";
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
 use Net::IRC;
-use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations $nick/;
-use vars qw/$echo_private_msg $echo_public_action $echo_topic/;
-use vars qw/$echo_join $echo_part $echo_nick $echo_kick $echo_cmode/;
-use vars qw/$echo_umode $echo_quit $interface_address $echo_public_msg/;
-use vars qw/$daemonize/;
+use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations $nick %config/;
 
 my $config_file_name = "relay-bot.config";
 
@@ -17,20 +13,21 @@ my $config_file_name = "relay-bot.config";
 
 my $unused_option = -1;
 
-my $set_echo_public_msg    = $unused_option;
-my $set_echo_private_msg   = $unused_option;
-my $set_echo_public_action = $unused_option;
-my $set_echo_join          = $unused_option;
-my $set_echo_part          = $unused_option;
-my $set_echo_nick          = $unused_option;
-my $set_echo_kick          = $unused_option;
-my $set_echo_cmode         = $unused_option;
-my $set_echo_umode         = $unused_option;
-my $set_echo_quit          = $unused_option;
-my $set_echo_topic         = $unused_option;
-my $set_daemonize          = $unused_option;
-
-my $set_interface_address = "";
+my %override = (
+	       echo_public_msg =>    $unused_option,
+	       echo_private_msg =>   $unused_option,
+	       echo_public_action => $unused_option,
+	       echo_join =>          $unused_option,
+	       echo_part =>          $unused_option,
+	       echo_nick =>          $unused_option,
+	       echo_kick =>          $unused_option,
+	       echo_cmode =>         $unused_option,
+	       echo_umode =>         $unused_option,
+	       echo_quit =>          $unused_option,
+	       echo_topic =>         $unused_option,
+	       daemonize =>          $unused_option,
+	       interface_address =>  "",
+);
 
 my $valid_args = "acedhijkmnpqtuv";
 
@@ -53,34 +50,34 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 
 		# -a
 		if( $arg =~ /^\-[$valid_args]*a/ ) {
-			$set_echo_public_action = 0;
+			$override{echo_public_action} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*a/ ) {
-			$set_echo_public_action = 1;
+			$override{echo_public_action} = 1;
 		}
 		
 		# -c
 		if( $arg =~ /^\-[$valid_args]*c/ ) {
-			$set_echo_cmode = 0;
+			$override{echo_cmode} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*c/ ) {
-			$set_echo_cmode = 1;
+			$override{echo_cmode} = 1;
 		}
 		
 		# -d
 		if( $arg =~ /^\-[$valid_args]*d/ ) {
-			$set_daemonize = 0;
+			$override{daemonize} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*d/ ) {
-			$set_daemonize = 1;
+			$override{daemonize} = 1;
 		}
 		
 		# -e
 		if( $arg =~ /^\-[$valid_args]*e/ ) {
-			$set_echo_public_msg = 0;
+			$override{echo_public_msg} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*e/ ) {
-			$set_echo_public_msg = 1;
+			$override{echo_public_msg} = 1;
 		}
 
 		# -f
@@ -125,7 +122,7 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 		if( $arg =~ /^-i/ ) {
 			my $addr = $ARGV[$i+1];
 			if( $addr =~ /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/ ) {	
-				$set_interface_address = $addr;
+				$override{interface_address} = $addr;
 				$interval = 2;
 				next SWITCH;	
 			} else {
@@ -136,66 +133,66 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 
 		# -j
 		if( $arg =~ /^\-[$valid_args]*j/ ) {
-			$set_echo_join = 0;
+			$override{echo_join} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*j/ ) {
-			$set_echo_join = 1;
+			$override{echo_join} = 1;
 		}
 		
 		# -k
 		if( $arg =~ /^\-[$valid_args]*k/ ) {
-			$set_echo_kick = 0;
+			$override{echo_kick} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*k/ ) {
-			$set_echo_kick = 1;
+			$override{echo_kick} = 1;
 		}
 		
 		# -m
 		if( $arg =~ /^\-[$valid_args]*m/ ) {
-			$set_echo_private_msg = 0;
+			$override{echo_private_msg} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*m/ ) {
-			$set_echo_private_msg = 1;
+			$override{echo_private_msg} = 1;
 		}
 
 		# -n
 		if( $arg =~ /^\-[$valid_args]*n/ ) {
-			$set_echo_nick = 0;
+			$override{echo_nick} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*n/ ) {
-			$set_echo_nick = 1;
+			$override{echo_nick} = 1;
 		}
 		
 		# -p
 		if( $arg =~ /^\-[$valid_args]*p/ ) {
-			$set_echo_part = 0;
+			$override{echo_part} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*p/ ) {
-			$set_echo_part = 1;
+			$override{echo_part} = 1;
 		}
 		
 		# -q
 		if( $arg =~ /^\-[$valid_args]*q/ ) {
-			$set_echo_quit = 0;
+			$override{echo_quit} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*q/ ) {
-			$set_echo_quit = 1;
+			$override{echo_quit} = 1;
 		}
 		
 		# -t
 		if( $arg =~ /^\-[$valid_args]*t/ ) {
-			$set_echo_topic = 0;
+			$override{echo_topic} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*t/ ) {
-			$set_echo_topic = 1;
+			$override{echo_topic} = 1;
 		}
 
 		# -u  
 		if( $arg =~ /^\-[$valid_args]*u/ ) {
-			$set_echo_umode = 0;
+			$override{echo_umode} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*u/ ) {
-			$set_echo_umode = 1;
+			$override{echo_umode} = 1;
 		}
 		
 		# -v
@@ -210,82 +207,63 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 require $config_file_name;
 
 # In case the options are not present in the config file...
-if ( !defined( $echo_public_msg ) ) {
-    $echo_public_msg = 1;
-}
-if( !defined( $echo_private_msg ) ) {
-    $echo_private_msg = 1;
-}
-if ( !defined( $echo_public_action ) ) {
-    $echo_public_action = 1;
-}
-if ( !defined( $echo_join ) ) {
-    $echo_join = 1;
-}
-if ( !defined( $echo_part ) ) {
-    $echo_part = 1;
-}
-if( !defined( $echo_nick ) ) {
-    $echo_nick = 1;
-}
-if( !defined( $echo_kick ) ) {
-    $echo_kick = 1;
-}
-if( !defined( $echo_cmode ) ) {
-    $echo_cmode = 1;
-}
-if( !defined( $echo_umode ) ) {
-    $echo_umode = 1;
-}
-if( !defined( $echo_quit ) ) {
-    $echo_quit = 1;
-}
-if( !defined( $echo_topic ) ) {
-    $echo_topic = 1;
-}
-if( !defined( $daemonize ) ) {
-    $daemonize = 0;
+if ( !defined( %config ) ) {
+    %config = (
+	       echo_public_msg => 1,
+	       echo_private_msg => 1,
+	       echo_public_action => 1,
+	       echo_join => 1,
+	       echo_part => 1,
+	       echo_nick => 1,
+	       echo_kick => 1,
+	       echo_cmode => 1,
+	       echo_umode => 1,
+	       echo_quit => 1,
+	       echo_topic => 1,
+	       daemonize => 0,
+	       interface_address => "",
+    );
 }
 
 # Override config file settings with command line args where req'd.
-if ( $set_echo_public_msg != $unused_option ) {
-    $echo_public_msg = $set_echo_public_msg;
+if ( $override{echo_public_msg} != $unused_option ) {
+    $config{echo_public_msg} = $override{echo_public_msg};
 }
-if ( $set_echo_private_msg != $unused_option ) {
-    $echo_private_msg = $set_echo_private_msg;
+if ( $override{echo_private_msg} != $unused_option ) {
+    $config{echo_private_msg} = $override{echo_private_msg};
 }
-if ( $set_echo_public_action != $unused_option ) {
-    $echo_public_action = $set_echo_public_action;
+if ( $override{echo_public_action} != $unused_option ) {
+    $config{echo_public_action} = $override{echo_public_action};
 }
-if ( $set_echo_join != $unused_option ) {
-    $echo_join = $set_echo_join;
+if ( $override{echo_join} != $unused_option ) {
+    $config{echo_join} = $override{echo_join};
 }
-if ( $set_echo_part != $unused_option ) {
-    $echo_part = $set_echo_part;
+if ( $override{echo_part} != $unused_option ) {
+    $config{echo_part} = $override{echo_part};
 }
-if ( $set_echo_nick != $unused_option ) {
-    $echo_nick = $set_echo_nick;
+if ( $override{echo_nick} != $unused_option ) {
+    $config{echo_nick} = $override{echo_nick};
 }
-if ( $set_echo_kick != $unused_option ) {
-    $echo_kick = $set_echo_kick;
+if ( $override{echo_kick} != $unused_option ) {
+    $config{echo_kick} = $override{echo_kick};
 }
-if ( $set_echo_cmode != $unused_option ) {
-    $echo_cmode = $set_echo_cmode;
+if ( $override{echo_cmode} != $unused_option ) {
+    $config{echo_cmode} = $override{echo_cmode};
 }
-if ( $set_echo_umode != $unused_option ) {
-    $echo_umode = $set_echo_umode;
+if ( $override{echo_umode} != $unused_option ) {
+    $config{echo_umode} = $override{echo_umode};
 }
-if ( $set_echo_quit != $unused_option ) {
-    $echo_quit = $set_echo_quit;
+if ( $override{echo_quit} != $unused_option ) {
+    $config{echo_quit} = $override{echo_quit};
 }
-if ( $set_echo_topic != $unused_option ) {
-    $echo_topic = $set_echo_topic;
+if ( $override{echo_topic} != $unused_option ) {
+    $config{echo_topic} = $override{echo_topic};
 }
-if ( $set_interface_address ne "" ) {
-    $interface_address = $set_interface_address;
+if ( $override{interface_address} ne "" ) {
+    $config{interface_address} = $override{interface_address};
 }
-if ( $set_daemonize != $unused_option ) {
-    $daemonize = $set_daemonize;
+if ( $override{daemonize} != $unused_option ) {
+    $config{daemonize} = $override{daemonize};
 }
 
 
@@ -293,7 +271,7 @@ if ( $set_daemonize != $unused_option ) {
 my $irc = Net::IRC->new();
 print "Created Net::IRC object\n";
 
-if ( $daemonize ) {
+if ( $config{daemonize} ) {
     require Proc::Daemon;
     Proc::Daemon::Init();
 }
@@ -321,7 +299,7 @@ foreach $host (keys %hosts) {
     print "Starting up $host (@server)\n";
     foreach my $server (@server) {
 
-	if( !defined($interface_address) || ($interface_address eq "" ) ) {
+	if( $config{interface_address} eq "" ) {
 	    $connect =  $irc->newconn(
 					 Nick   => $nick,
 					 Ircname => "Relay-bot for @relay_channels on $host ($server)",
@@ -332,7 +310,7 @@ foreach $host (keys %hosts) {
 					 Nick   => $nick,
 					 Ircname => "Relay-bot for @relay_channels on $host ($server)",
 					 Server => $server,
-					 LocalAddr => $interface_address,
+					 LocalAddr => $config{interface_address},
 	    );
 	}
 
@@ -585,7 +563,7 @@ for (@irc) {
 
 # Look at the topic for a channel you join.
 sub on_topic {
-    return if !$echo_topic;
+    return if !$config{echo_topic};
     my ($self, $event) = @_;
     my @args = $event->args();
     my @to = $event->to();
@@ -640,7 +618,7 @@ for (@irc) {
 }
 
 sub public_msg {
-    return if !$echo_public_msg;
+    return if !$config{echo_public_msg};
     my $self = shift;
     my $event = shift;
     
@@ -683,7 +661,7 @@ sub public_msg {
 }
 
 sub public_action {
-    return if !$echo_public_action;
+    return if !$config{echo_public_action};
     my ($self, $event) = @_;
     my ($nick, @args) = ($event->nick, $event->args);
     
@@ -711,7 +689,7 @@ sub public_action {
 }
 
 sub private_msg {
-    return if !$echo_private_msg;
+    return if !$config{echo_private_msg};
     my $self = shift;
     my $event = shift;
     my @to = $event->to();
@@ -764,7 +742,7 @@ sub on_join {
 	$self->mode($channel,'+o',$event->nick);
     }
 
-    return if !$echo_join;
+    return if !$config{echo_join};
 
     my $nick = $event->nick;
     return if &samenick($nick);
@@ -800,7 +778,7 @@ sub on_join {
 }
 
 sub on_nick_change {
-    return if !$echo_nick;
+    return if !$config{echo_nick};
     my $self = shift;
     my $event = shift;
     
@@ -821,7 +799,7 @@ sub on_nick_change {
 }
 
 sub on_part {
-    return if !$echo_part;
+    return if !$config{echo_part};
     my $self = shift;
     my $event = shift;
     
@@ -846,7 +824,7 @@ sub on_part {
 }
 
 sub on_kick {
-    return if !$echo_kick;
+    return if !$config{echo_kick};
     my $self = shift;
     my $event = shift;
     
@@ -866,7 +844,7 @@ sub on_kick {
 }
 
 sub on_mode {
-    return if !$echo_cmode;
+    return if !$config{echo_cmode};
     my $self = shift;
     my $event = shift;
     
@@ -884,7 +862,7 @@ sub on_mode {
 }
 
 sub on_umode {
-    return if !$echo_umode;
+    return if !$config{echo_umode};
     my $self = shift;
     my $event = shift;
     
@@ -903,7 +881,7 @@ sub on_umode {
 
 sub on_quit {
 
-    return if !$echo_quit;
+    return if !$config{echo_quit};
     my $self = shift;
     my $event = shift;
     

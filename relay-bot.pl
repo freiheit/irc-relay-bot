@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.21 2001/07/04 06:26:20 freiheit Exp $
+# $Id: relay-bot.pl,v 1.22 2001/08/18 00:15:41 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
@@ -25,19 +25,28 @@ my %reverse_hosts = ();
 print "Setting up hosts\n";
 my $host;
 foreach $host (keys %hosts) {
-    print "Starting up $host\n";
-    my $connect =  $irc->newconn(
-				 Nick   => $nick,
-				 Ircname => "Relay-bot for @relay_channels",
-				 Server => $hosts{$host}
-				);
-    if (defined($connect) && $connect) {
-        push @irc, $connect;
-	$forward_hosts{$host} = $connect;
-	$reverse_hosts{"$connect"} = $host;
-	print "$host successful\n";
+    my @server;
+    if ( ref( $hosts{$host} ) ) {
+	@server = @{$hosts{$host}};
     } else {
-	print "$host failed\n";
+        @server = ($hosts{$host});
+    }
+    print "Starting up $host (@server)\n";
+    foreach my $server (@server) {
+        my $connect =  $irc->newconn(
+				     Nick   => $nick,
+				     Ircname => "Relay-bot for @relay_channels on $host ($server)",
+				     Server => $server,
+				    );
+        if (defined($connect) && $connect) {
+            push @irc, $connect;
+	    $forward_hosts{$host} = $connect;
+            $reverse_hosts{"$connect"} = $host;
+            print "$host ($server) successful\n";
+	    last;
+        } else {
+	    print "$host ($server) failed\n";
+        }
     }
 }
 print "Done with hosts\n";
@@ -254,12 +263,21 @@ sub on_disconnect {
     print "Disconnected from ", $event->from(), " (",
     ($event->args())[0], "). Attempting to reconnect...\n";
     print "Sleeping";
-    foreach (1..10) {
+    local $| = 1;
+    foreach (1..3) {
 	sleep 1;
 	print ".";
     }
     print "\n";
-    $self->connect();
+    my $network = $reverse_hosts{$self};
+    my $server = $self->server;
+    if ( ref( $hosts{$network} ) ) {
+	$server = $hosts{$network}->[rand @{$hosts{$network}}];
+    } else {
+	$server = $hosts{$network};
+    }
+    print "Connecting to $server\n";
+    $self->connect(Server => $server);
 }
 
 print "Adding disconnect handler\n";

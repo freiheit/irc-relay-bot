@@ -1,12 +1,12 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.37 2002/10/18 00:29:45 wepprop Exp $
+# $Id: relay-bot.pl,v 1.38 2002/10/20 20:55:23 wepprop Exp $
 my $version_number = "x.x";
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
 use Net::IRC;
 use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations $nick %config/;
-use vars qw/@auto_ops/;
+use vars qw/%Relays @auto_ops/;
 
 my $config_file_name = "relay-bot.config";
 
@@ -27,12 +27,12 @@ my %override = (
 	       echo_quit =>          $unused_option,
 	       echo_topic =>         $unused_option,
 	       daemonize =>          $unused_option,
-	       logfile =>            "$unused_option",
+	       logfile =>           "$unused_option",
 	       interface_address =>  "",
 
 );
 
-my $valid_args = "acedhijklmnpqtuv";
+my $valid_args = "acefdhijklmnpqtuv";
 
 for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 
@@ -280,6 +280,61 @@ if ( $override{logfile} ne "$unused_option" ) {
     $config{logfile} = $override{logfile};
 }
 
+# This block of code exists to provide reverse compatibility with
+# the previous %hosts and @relay_channels structures.
+
+if( defined( %hosts ) ) {
+
+    # Old style config file - create the %Relays structure
+
+    %Relays = ();
+
+    foreach my $network (keys %hosts) {
+
+	my $group = 0;
+
+	foreach my$entry (@relay_channels) {
+
+	    my $channel_name;
+	    my $channel_password;
+
+	    if( $entry =~ /^([^ ]+)\s([^ ]+)$/ ) {
+		$channel_name = $1;
+		$channel_password = $2;
+	    } else {
+		$channel_name = $entry;
+		$channel_password = "";
+	    }
+
+	    $Relays{$network}{servers} = $hosts{$network};
+
+	    $Relays{$network}{channels}{$channel_name}{passwd}=$channel_password;
+	    $Relays{$network}{channels}{$channel_name}{group} = $group;
+	    $Relays{$network}{channels}{$channel_name}{rcv} = 1;
+	    $Relays{$network}{channels}{$channel_name}{xmit} = 1;
+
+	    ++$group;
+	}
+    }
+} else {
+
+    # @relay_channels is retained (for now) for convenience in a few lines
+
+    @relay_channels = ();
+
+    foreach my $network (keys %Relays) {
+
+	foreach my $channel (keys %{ $Relays{$network}{channels} } ) {
+
+	    push @relay_channels, $channel;
+
+	    last;
+	}
+	
+	last;
+    }
+}
+
 # Actual IRC object...
 my $irc = Net::IRC->new();
 print "Created Net::IRC object\n";
@@ -314,14 +369,17 @@ my %reverse_hosts = ();
 print LOGFILE "Setting up hosts\n";
 my $connect;
 my $host;
-foreach $host (keys %hosts) {
+foreach $host (keys %Relays) {
     my @server;
-    if ( ref( $hosts{$host} ) ) {
-	@server = @{$hosts{$host}};
+
+    if ( ref( $Relays{$host} ) ) {
+	@server = @{ $Relays{$host}{servers} };
     } else {
-        @server = ($hosts{$host});
+        @server =  ( $Relays{$host}{servers} );
     }
+
     print LOGFILE "Starting up $host (@server)\n";
+
     foreach my $server (@server) {
 
 	if( $config{interface_address} eq "" ) {
@@ -451,10 +509,11 @@ sub cmd {
 
 sub on_connect {
     my $self = shift;
+    my $network = $reverse_hosts{$self};
     
-    for (@relay_channels) {
-	print LOGFILE "$_\@$reverse_hosts{$self} joining channel\n";
-	$self->join($_);
+    foreach my $channel (keys %{ $Relays{$network}{channels} } ) {
+	print LOGFILE "Joining channel $channel on network $network\n";
+	$self->join($channel." " .$Relays{$network}{channels}{$channel}{passwd} );
     }
 }
 
@@ -572,10 +631,10 @@ sub on_disconnect {
     print LOGFILE "\n";
     my $network = $reverse_hosts{$self};
     my $server = $self->server;
-    if ( ref( $hosts{$network} ) ) {
-	$server = $hosts{$network}->[rand @{$hosts{$network}}];
+    if ( ref( $Relays{$network} ) ) {
+	$server = $Relays{$network}{servers}->[rand @{$Relays{$network}}];
     } else {
-	$server = $hosts{$network};
+	$server = $Relays{$network}{servers};
     }
     print LOGFILE "Connecting to $server\n";
     $self->connect(Server => $server) || on_disconnect(@_);
@@ -911,7 +970,7 @@ sub on_quit {
     
     for my $server (@irc) {
 	next if $server==$self;
-	for my $to (@relay_channels) {
+	for my $to (keys %{ $Relays{$reverse_hosts{$self}}{channels} } ) {
 	    $server->privmsg($to,"*** signoff ".
 			     $reverse_hosts{$self}."!".$event->nick.' '.
 			     '('.join(' ',$event->args).')');

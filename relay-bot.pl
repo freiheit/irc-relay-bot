@@ -139,12 +139,30 @@ sub efnet_msg {
     my $nick = $event->nick;
     my ($arg) = $event->args;
 
+    if ($self == $under) {
+	print "SELF=UNDER\n";
+    }
+    if ($self == $efnet) {
+	print "SELF=EFNET\n";
+    }
+
     print "EFnet: <$nick> $arg\n";
 
     $under->privmsg('#fandanta',"<$nick> $arg");
 }
 
+sub efnet_action {
+    my ($self, $event) = @_;
+    my ($nick, @args) = ($event->nick, $event->args);
+
+    shift @args;
+
+    print "EFnet: * $nick @args\n";  
+    $under->privmsg('#fandanta',"* $nick @args");
+}
+
 $efnet->add_handler('public', \&efnet_msg);
+$efnet->add_handler('caction', \&efnet_action);
 
 sub under_msg {
     my $self = shift;
@@ -153,12 +171,30 @@ sub under_msg {
     my $nick = $event->nick;
     my ($arg) = $event->args;
 
+    if ($self == $under) {
+	print "SELF=UNDER\n";
+    }
+    if ($self == $efnet) {
+	print "SELF=EFNET\n";
+    }
+
     print "Under: <$nick> $arg\n";
 
     $efnet->privmsg('#fandanta',"<$nick> $arg");
 }
 
+sub under_action {
+    my ($self, $event) = @_;
+    my ($nick, @args) = ($event->nick, $event->args);
+
+    shift @args;
+
+    print "Under: * $nick @args\n";  
+    $efnet->privmsg('#fandanta',"* $nick @args");
+}
+
 $under->add_handler('public', \&under_msg);
+$under->add_handler('caction', \&under_action);
 
 print "starting...\n";
 $irc->start;

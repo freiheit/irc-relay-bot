@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.25 2002/07/05 19:12:52 freiheit Exp $
+# $Id: relay-bot.pl,v 1.26 2002/07/05 19:47:41 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
@@ -188,7 +188,7 @@ sub on_names {
     # splice() only works on real arrays. Sigh.
     ($channel, @list) = splice @list, 2;
     
-    my $desc = "*** $reverse_hosts{$self}!$channel".
+    my $desc = "*** $channel\@$reverse_hosts{$self}".
     " names: @list";
     
     print "$channel\@$reverse_hosts{$self} names: @list\n";
@@ -398,8 +398,8 @@ sub private_msg {
 	my $to = $1;
 	my $net = $2;
 	$arg = $3;
-	print $reverse_hosts{$self}.'!'.($event->to())[0].
-	"!$nick\@$reverse_hosts{$self} -> $to\@$net: $arg\n";
+	print( ($event->to())[0].'@'.$reverse_hosts{$self}.
+	"!$nick\@$reverse_hosts{$self} -> $to\@$net: $arg\n");
 	if (exists $forward_hosts{$net}) {
 	    my $server = $forward_hosts{$net};
 	    $server->privmsg($to,">$nick\@$reverse_hosts{$self}< $arg");
@@ -407,15 +407,15 @@ sub private_msg {
     } elsif($arg =~ m/^[<>]?(\w{1,16})[<>]?\s+(.*)/) {
 	my $to = $1;
 	$arg = $2;
-	print $reverse_hosts{$self}.'!'.($event->to())[0].
-	"!$nick\@$reverse_hosts{$self} -> $to: $arg\n";
+	print( ($event->to())[0].'@'.$reverse_hosts{$self}.
+	"!$nick\@$reverse_hosts{$self} -> $to: $arg\n");
 	for my $server (@irc) {
 	    next if $server == $self;
 	    $server->privmsg($to,">$nick\@$reverse_hosts{$self}< $arg");
 	}
     } else {
-	print $reverse_hosts{$self}.'!'.($event->to())[0].
-	"!$nick: $arg\n";
+	print( ($event->to())[0].'@'.$reverse_hosts{$self}.
+	"!$nick: $arg\n");
     }
 }
 
@@ -431,8 +431,8 @@ sub on_join {
     my @arg = $event->args;
     
     print( "*** join ".
-           $reverse_hosts{$self}."!".
-           ($event->to)[0].
+           ($event->to)[0].'@'.
+           $reverse_hosts{$self}.
            ": ".$event->nick." ".$event->userhost."\n");
     
     
@@ -441,8 +441,8 @@ sub on_join {
 	next if $server==$self;
 	for my $to ($event->to) {
 	    $server->privmsg($to,"*** join ".
-			     $reverse_hosts{$self}."!".
-			     ($event->to)[0].
+	                     ($event->to)[0].'@'.
+			     $reverse_hosts{$self}.
 			     ": ".$event->nick." ".$event->userhost);
 	}
     }
@@ -459,8 +459,8 @@ sub on_nick_change {
     my $self = shift;
     my $event = shift;
     
-    print $reverse_hosts{$self}."!".($event->to)[0]." nick change ".
-    $event->nick." ".$event->userhost.join(' ',$event->args)."\n";
+    print( ($event->to)[0].'@'.$reverse_hosts{$self}." nick change ".
+    $event->nick." ".$event->userhost.join(' ',$event->args)."\n");
     
     return if &samenick($event->nick);
     
@@ -468,7 +468,7 @@ sub on_nick_change {
 	next if $server==$self;
 	for my $to ($event->to) {
 	    $server->privmsg($to,"*** nick change ".
-			     $reverse_hosts{$self}."!".($event->to)[0].
+			     ($event->to)[0].'@'.$reverse_hosts{$self}.
 			     "!".$event->userhost.' to '.
 			     join(' ',$event->args));
 	}
@@ -479,14 +479,14 @@ sub on_part {
     my $self = shift;
     my $event = shift;
     
-    print $reverse_hosts{$self}."!".($event->to)[0]." chan part ".
-    $event->nick." ".$event->userhost."\n";
+    print( ($event->to)[0].'@'.$reverse_hosts{$self}." chan part ".
+    $event->nick." ".$event->userhost."\n");
     
     return if &samenick($event->nick);
     
     print( "*** part ".
-	   $reverse_hosts{$self}."!".
-	   ($event->to)[0].
+	   ($event->to)[0].'@'.
+	   $reverse_hosts{$self}.
 	   ": ".$event->nick." ".$event->userhost);
     
     for my $server (@irc) {

@@ -28,7 +28,9 @@ There's currently no real installation routine; just untar the tarball, edit
 USAGE
 
 run relay-bot.pl, possibly in a loop like "while sleep 10 ; do
-./relay-bot.pl; done".
+./relay-bot.pl; done".  Or "nohup ./relay-bot.pl >> /var/log/relay-bot.log
+2>&1".  Or combine the two into: 
+nohup sh -c "while sleep 10 ; do ./relay-bot.pl >> /var/log/relay-bot.log 2>&1 ; done" &
 
 It will sign onto all the servers in %hosts and join all the channels in
 @relay_channels.

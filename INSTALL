@@ -1,1 +1,7 @@
-See README
+INSTALL
+
+Relay-bot is written in Perl, so you'll need a reasonably recent copy of
+Perl.  You'll also need a copy of Net::IRC.
+
+There's currently no real installation routine; just untar the tarball, edit
+"relay-bot.config" and run "relay-bot.pl".

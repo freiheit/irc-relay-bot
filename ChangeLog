@@ -1,0 +1,163 @@
+2002-07-05 12:47  freiheit
+
+	* relay-bot.pl: More formatting changes; net!nick -> nick@net
+
+2002-07-05 12:12  freiheit
+
+	* relay-bot.pl: Syntax	fixes
+
+2002-07-05 12:07  freiheit
+
+	* relay-bot.pl: Changes to screen output.
+
+2002-07-04 12:30  freiheit
+
+	* relay-bot.config: Demonstrates multi-host per network stuff now. 
+	Mmmm...
+
+2002-07-04 12:29  freiheit
+
+	* relay-bot.pl: Smarter about disconnects and commented out
+	LocalAddr that we needed on that one box...
+
+2002-07-04 12:25  freiheit
+
+	* README, TODO: Documentation updates.	(Still terrible, but a bit
+	improved)
+
+2001-08-17 17:15  freiheit
+
+	* relay-bot.pl: Changes to support multiple servers per network. 
+	At startup will connect to them in order until it succeeds; when
+	disconnected, it will randomly try one of the servers defined for
+	that network.  In %hosts, just have an anonymous array containing
+	scalars instead of a scalar.  (still works fine with just a scalar)
+
+2001-07-13 15:56  freiheit
+
+	* TODO: List of things to do...
+
+2001-07-13 15:56  freiheit
+
+	* relay-bot.config: comment out most of the auth lines so they're
+	examples, not "real".
+
+2001-07-03 23:26  freiheit
+
+	* relay-bot.pl: Silent about unknown commands
+
+2001-06-27 15:58  freiheit
+
+	* README: Added description of what the bot's like in action.
+
+2001-06-10 13:43  freiheit
+
+	* relay-bot.pl: (on_join) Screen output fixed.
+
+2001-06-10 01:03  freiheit
+
+	* AUTHORS, BUGS, INSTALL, README (utags: RELEASE_0_POINT_9): Files
+	added in preparation for initial release.
+
+2001-06-10 00:24  freiheit
+
+	* Artistic, GPL, LICENSE (utags: RELEASE_0_POINT_9): Licensing
+	stuff...
+
+2001-06-09 23:37  freiheit
+
+	* relay-bot.pl (tags: RELEASE_0_POINT_9): Bunch of formatting
+	fixups and some more printing during startup to figure out what
+	takes so fucking long.
+
+2001-06-09 23:36  freiheit
+
+	* relay-bot.config (tags: RELEASE_0_POINT_9): Formatting fixups and
+	some explanatory comments
+
+2001-06-09 23:03  freiheit
+
+	* relay-bot.config: minor format fixups...
+
+2001-06-09 17:26  freiheit
+
+	* relay-bot.pl: Various changes from the actual running code.
+
+2001-06-09 16:50  freiheit
+
+	* relay-bot.config, relay-bot.pl: Moving the nick into the
+	configuration...
+
+2001-06-09 14:25  freiheit
+
+	* relay-bot.config, relay-bot.pl: (Hopefully) Changing to using a
+	separate config file...
+
+2001-06-08 15:25  freiheit
+
+	* relay-bot.pl: whitespace cleanup
+
+2001-06-07 12:26  freiheit
+
+	* relay-bot.pl: Rearranged a little so "config" code is near the
+	top.
+
+2000-12-29 16:49  eric
+
+	* relay-bot.pl: Changes to support specific network relaying
+
+2000-12-29 16:32  eric
+
+	* relay-bot.pl: Further changes, mostly from Devin...
+
+2000-12-10 23:39  eric
+
+	* relay-bot.pl: A bunch of changes from Devin that need to be
+	committed.  Should be moving this to SourceForge soon, so he can do
+	it himself.
+
+2000-11-27 22:56  eric
+
+	* relay-bot.pl: Various Devin changes...  (like notification of
+	signons and signoffs)
+
+2000-11-27 22:55  eric
+
+	* relay-bot.pl: Some changes I made -- not even sure what,
+	exactly...
+
+2000-11-16 17:15  eric
+
+	* relay-bot.pl: Added ID line.
+
+2000-11-16 17:14  eric
+
+	* relay-bot.pl: Various changes.
+
+2000-10-23 17:09  eric
+
+	* relay-bot.pl: Multiple channels, another server, etc.
+
+2000-10-23 16:18  eric
+
+	* relay-bot.pl: It knows what it's doing, now...
+
+2000-10-22 16:58  eric
+
+	* relay-bot.pl: Now it can easily be expanded to work with lots of
+	nets.
+
+2000-10-22 16:50  eric
+
+	* relay-bot.pl: Discovered that I can detect which handle I've
+	got...	:-)
+
+2000-10-22 16:05  eric
+
+	* relay-bot.pl: Actually works and stuff, even...
+
+2000-10-22 15:51  eric
+
+	* relay-bot.pl: Hopefully there's a remote chance that it'll
+	connect in two places and relay stuff between...
+

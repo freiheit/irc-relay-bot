@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.20 2001/06/10 20:43:24 freiheit Exp $
+# $Id: relay-bot.pl,v 1.21 2001/07/04 06:26:20 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
@@ -70,7 +70,7 @@ sub cmd {
     ($cmd,@args) = split /\s+/, $cmd;
     
     unless ($cmd = $cmd_map{lc $cmd}) {
-	$host->privmsg(($event->to)[0],"$who: unknown command $cmd0");
+	# $host->privmsg(($event->to)[0],"$who: unknown command $cmd0");
 	return;
     }
     unless (&cmd_auth("$who!".$event->userhost,$cmd)) {

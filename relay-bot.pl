@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.42 2002/10/23 20:12:09 wepprop Exp $
+# $Id: relay-bot.pl,v 1.43 2002/10/24 03:02:05 wepprop Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -786,10 +786,32 @@ sub public_msg {
     
     print LOGFILE "$to[0]\@$reverse_hosts{$self} <$nick> $arg\n";
 
-    for my $server (@irc) {
-	next if $server == $self;
-        for my $to (@to) {
-            $server->privmsg($to,"<$nick\@$reverse_hosts{$self}> $arg");
+    my $original_network = $reverse_hosts{$self};
+
+    foreach my $original_channel (@to) {
+
+        my $channel_send_enable = $Relays{$original_network}{channels}{$original_channel}{xmit};
+
+        if( $channel_send_enable ) {
+
+            my $relay_group = $Relays{$original_network}{channels}{$original_channel}{group};
+
+            foreach my $echo_network (keys %{ $ReceiveMap{$relay_group} } ) {
+
+                foreach my $echo_channel (keys %{ $ReceiveMap{$relay_group}{$echo_network} } ) {
+
+                    next if( ($echo_network eq $original_network) && ($echo_channel eq $original_channel) );
+
+                    my $channel_receive_enable = $ReceiveMap{$relay_group}{$echo_network}{$echo_channel};
+
+                    if( $channel_receive_enable ) {
+
+                         my $server = $forward_hosts{$echo_network};
+
+			 $server->privmsg($echo_channel,"<$nick\@$reverse_hosts{$self}> $arg");
+		     }
+		}
+	    }
         }
     }
 
@@ -814,10 +836,32 @@ sub public_action {
     my @to = $event->to;
     print LOGFILE ( ($event->to())[0].'@'.$reverse_hosts{$self}." $nick @args\n");
     
-    for my $server (@irc) {
-	next if $server == $self;
-        for my $to (@to) {
-            $server->privmsg($to,"* $nick\@$reverse_hosts{$self} @args");
+    my $original_network = $reverse_hosts{$self};
+
+    foreach my $original_channel (@to) {
+
+        my $channel_send_enable = $Relays{$original_network}{channels}{$original_channel}{xmit};
+
+        if( $channel_send_enable ) {
+
+            my $relay_group = $Relays{$original_network}{channels}{$original_channel}{group};
+
+            foreach my $echo_network (keys %{ $ReceiveMap{$relay_group} } ) {
+
+                foreach my $echo_channel (keys %{ $ReceiveMap{$relay_group}{$echo_network} } ) {
+
+                    next if( ($echo_network eq $original_network) && ($echo_channel eq $original_channel) );
+
+                    my $channel_receive_enable = $ReceiveMap{$relay_group}{$echo_network}{$echo_channel};
+
+                    if( $channel_receive_enable ) {
+
+                         my $server = $forward_hosts{$echo_network};
+
+			 $server->privmsg($echo_channel,"* $nick\@$reverse_hosts{$self} @args");
+		     }
+		}
+	    }
         }
     }
     for my $to (@to) {
@@ -875,7 +919,7 @@ sub private_msg {
 sub on_join {
     my $self = shift;
     my $event = shift;
-
+    my @to = $event->to();
     my ($channel) = ($event->to)[0];
     
     # Auto-ops - still primitive, requires regexp knowledge
@@ -901,13 +945,35 @@ sub on_join {
            $reverse_hosts{$self}.
            ": ".$event->nick." ".$event->userhost."\n");
     
-    for my $server (@irc) {
-	next if $server==$self;
-	for my $to ($event->to) {
-	    $server->privmsg($to,"*** join ".
-	                     ($event->to)[0].'@'.
-			     $reverse_hosts{$self}.
-			     ": ".$event->nick." ".$event->userhost);
+    my $original_network = $reverse_hosts{$self};
+
+    foreach my $original_channel (@to) {
+
+        my $channel_send_enable = $Relays{$original_network}{channels}{$original_channel}{xmit};
+
+        if( $channel_send_enable ) {
+
+            my $relay_group = $Relays{$original_network}{channels}{$original_channel}{group};
+
+            foreach my $echo_network (keys %{ $ReceiveMap{$relay_group} } ) {
+
+                foreach my $echo_channel (keys %{ $ReceiveMap{$relay_group}{$echo_network} } ) {
+
+                    next if( ($echo_network eq $original_network) && ($echo_channel eq $original_channel) );
+
+                    my $channel_receive_enable = $ReceiveMap{$relay_group}{$echo_network}{$echo_channel};
+
+                    if( $channel_receive_enable ) {
+
+                         my $server = $forward_hosts{$echo_network};
+
+			 $server->privmsg($echo_channel,"*** join ".
+					  ($event->to)[0].'@'.
+					  $reverse_hosts{$self}.
+					  ": ".$event->nick." ".$event->userhost);
+		     }
+		}
+	    }
 	}
     }
     for my $to ($event->to) {
@@ -927,19 +993,42 @@ sub on_join {
 sub on_nick_change {
     my $self = shift;
     my $event = shift;
+    my @to = $event->to();
     
     print LOGFILE ( ($event->to)[0].'@'.$reverse_hosts{$self}." nick change ".
     $event->nick." ".$event->userhost.join(' ',$event->args)."\n");
     
     return if &samenick($event->nick);
     
-    for my $server (@irc) {
-	next if $server==$self;
-	for my $to ($event->to) {
-	    $server->privmsg($to,"*** nick change ".
-			     ($event->to)[0].'@'.$reverse_hosts{$self}.
-			     "!".$event->userhost.' to '.
-			     join(' ',$event->args));
+    my $original_network = $reverse_hosts{$self};
+
+    foreach my $original_channel (@to) {
+
+        my $channel_send_enable = $Relays{$original_network}{channels}{$original_channel}{xmit};
+
+        if( $channel_send_enable ) {
+
+            my $relay_group = $Relays{$original_network}{channels}{$original_channel}{group};
+
+            foreach my $echo_network (keys %{ $ReceiveMap{$relay_group} } ) {
+
+                foreach my $echo_channel (keys %{ $ReceiveMap{$relay_group}{$echo_network} } ) {
+
+                    next if( ($echo_network eq $original_network) && ($echo_channel eq $original_channel) );
+
+                    my $channel_receive_enable = $ReceiveMap{$relay_group}{$echo_network}{$echo_channel};
+
+                    if( $channel_receive_enable ) {
+
+                         my $server = $forward_hosts{$echo_network};
+
+			 $server->privmsg($echo_channel,"*** nick change ".
+					  ($event->to)[0].'@'.$reverse_hosts{$self}.
+					  "!".$event->userhost.' to '.
+					  join(' ',$event->args));
+		     }
+		}
+	    }
 	}
     }
 }
@@ -947,6 +1036,7 @@ sub on_nick_change {
 sub on_part {
     my $self = shift;
     my $event = shift;
+    my @to = $event->to();
     
     print LOGFILE ( ($event->to)[0].'@'.$reverse_hosts{$self}." chan part ".
     $event->nick." ".$event->userhost."\n");
@@ -958,12 +1048,34 @@ sub on_part {
 	   $reverse_hosts{$self}.
 	   ": ".$event->nick." ".$event->userhost);
     
-    for my $server (@irc) {
-	next if $server==$self;
-	for my $to ($event->to) {
-	    $server->privmsg($to,"*** part ".
-			     $reverse_hosts{$self}."!".($event->to)[0].
-			     ": ".$event->nick." ".$event->userhost);
+    my $original_network = $reverse_hosts{$self};
+
+    foreach my $original_channel (@to) {
+
+        my $channel_send_enable = $Relays{$original_network}{channels}{$original_channel}{xmit};
+
+        if( $channel_send_enable ) {
+
+            my $relay_group = $Relays{$original_network}{channels}{$original_channel}{group};
+
+            foreach my $echo_network (keys %{ $ReceiveMap{$relay_group} } ) {
+
+                foreach my $echo_channel (keys %{ $ReceiveMap{$relay_group}{$echo_network} } ) {
+
+                    next if( ($echo_network eq $original_network) && ($echo_channel eq $original_channel) );
+
+                    my $channel_receive_enable = $ReceiveMap{$relay_group}{$echo_network}{$echo_channel};
+
+                    if( $channel_receive_enable ) {
+
+                         my $server = $forward_hosts{$echo_network};
+
+			 $server->privmsg($echo_channel,"*** part ".
+					  $reverse_hosts{$self}."!".($event->to)[0].
+					  ": ".$event->nick." ".$event->userhost);
+		     }
+		}
+	    }
 	}
     }
 }
@@ -971,18 +1083,41 @@ sub on_part {
 sub on_kick {
     my $self = shift;
     my $event = shift;
+    my @to = $event->to();
     
     print LOGFILE $reverse_hosts{$self}."!".($event->to)[0]." kick ".
     $event->nick." ".join(' ',$event->args)."\n";
     
     return if &samenick($event->nick);
     
-    for my $server (@irc) {
-	next if $server==$self;
-	for my $to ($event->to) {
-	    $server->privmsg($to,"*** ".
-			     $reverse_hosts{$self}."!".($event->to)[0].
-			     ": ".$event->nick." kicked ".join(' ',$event->args));
+    my $original_network = $reverse_hosts{$self};
+
+    foreach my $original_channel (@to) {
+
+        my $channel_send_enable = $Relays{$original_network}{channels}{$original_channel}{xmit};
+
+        if( $channel_send_enable ) {
+
+            my $relay_group = $Relays{$original_network}{channels}{$original_channel}{group};
+
+            foreach my $echo_network (keys %{ $ReceiveMap{$relay_group} } ) {
+
+                foreach my $echo_channel (keys %{ $ReceiveMap{$relay_group}{$echo_network} } ) {
+
+                    next if( ($echo_network eq $original_network) && ($echo_channel eq $original_channel) );
+
+                    my $channel_receive_enable = $ReceiveMap{$relay_group}{$echo_network}{$echo_channel};
+
+                    if( $channel_receive_enable ) {
+
+                         my $server = $forward_hosts{$echo_network};
+
+			 $server->privmsg($echo_channel,"*** ".
+					  $reverse_hosts{$self}."!".($event->to)[0].
+					  ": ".$event->nick." kicked ".join(' ',$event->args));
+		     }
+		}
+	    }
 	}
     }
 }
@@ -990,16 +1125,39 @@ sub on_kick {
 sub on_cmode {
     my $self = shift;
     my $event = shift;
+    my @to = $event->to();
     
     print LOGFILE $reverse_hosts{$self}."!".($event->to)[0]." mode ".
     $event->nick." ".join(' ',$event->args)."\n";
     
-    for my $server (@irc) {
-	next if $server==$self;
-	for my $to ($event->to) {
-	    $server->privmsg($to,"*** channel mode change ".
-			     $reverse_hosts{$self}."!".$event->nick.' '.
-			     join(' ',$event->args));
+    my $original_network = $reverse_hosts{$self};
+
+    foreach my $original_channel (@to) {
+
+        my $channel_send_enable = $Relays{$original_network}{channels}{$original_channel}{xmit};
+
+        if( $channel_send_enable ) {
+
+            my $relay_group = $Relays{$original_network}{channels}{$original_channel}{group};
+
+            foreach my $echo_network (keys %{ $ReceiveMap{$relay_group} } ) {
+
+                foreach my $echo_channel (keys %{ $ReceiveMap{$relay_group}{$echo_network} } ) {
+
+                    next if( ($echo_network eq $original_network) && ($echo_channel eq $original_channel) );
+
+                    my $channel_receive_enable = $ReceiveMap{$relay_group}{$echo_network}{$echo_channel};
+
+                    if( $channel_receive_enable ) {
+
+                         my $server = $forward_hosts{$echo_network};
+
+			 $server->privmsg($echo_channel,"*** channel mode change ".
+					  $reverse_hosts{$self}."!".$event->nick.' '.
+					  join(' ',$event->args));
+		     }
+		}
+	    }
 	}
     }
 }
@@ -1007,16 +1165,39 @@ sub on_cmode {
 sub on_umode {
     my $self = shift;
     my $event = shift;
+    my @to = $event->to();
     
     print LOGFILE $reverse_hosts{$self}."!".($event->to)[0]." umode ".
     $event->nick." ".join(' ',$event->args)."\n";
     
-    for my $server (@irc) {
-	next if $server==$self;
-	for my $to ($event->to) {
-	    $server->privmsg($to,"*** user mode change ".
-			     $reverse_hosts{$self}."!".$event->nick.' '.
-			     join(' ',$event->args));
+    my $original_network = $reverse_hosts{$self};
+
+    foreach my $original_channel (@to) {
+
+        my $channel_send_enable = $Relays{$original_network}{channels}{$original_channel}{xmit};
+
+        if( $channel_send_enable ) {
+
+            my $relay_group = $Relays{$original_network}{channels}{$original_channel}{group};
+
+            foreach my $echo_network (keys %{ $ReceiveMap{$relay_group} } ) {
+
+                foreach my $echo_channel (keys %{ $ReceiveMap{$relay_group}{$echo_network} } ) {
+
+                    next if( ($echo_network eq $original_network) && ($echo_channel eq $original_channel) );
+
+                    my $channel_receive_enable = $ReceiveMap{$relay_group}{$echo_network}{$echo_channel};
+
+                    if( $channel_receive_enable ) {
+
+                         my $server = $forward_hosts{$echo_network};
+
+			 $server->privmsg($echo_channel,"*** user mode change ".
+					  $reverse_hosts{$self}."!".$event->nick.' '.
+					  join(' ',$event->args));
+		     }
+		}
+	    }
 	}
     }
 }
@@ -1024,16 +1205,39 @@ sub on_umode {
 sub on_quit {
     my $self = shift;
     my $event = shift;
+    my @to = $event->to();
     
     print LOGFILE $reverse_hosts{$self}."!>".($event->to)[0]."< quit ".
     $event->nick." ".join(' ',$event->args)."\n";
     
-    for my $server (@irc) {
-	next if $server==$self;
-	for my $to (keys %{ $Relays{$reverse_hosts{$self}}{channels} } ) {
-	    $server->privmsg($to,"*** signoff ".
-			     $reverse_hosts{$self}."!".$event->nick.' '.
-			     '('.join(' ',$event->args).')');
+    my $original_network = $reverse_hosts{$self};
+
+    foreach my $original_channel (@to) {
+
+        my $channel_send_enable = $Relays{$original_network}{channels}{$original_channel}{xmit};
+
+        if( $channel_send_enable ) {
+
+            my $relay_group = $Relays{$original_network}{channels}{$original_channel}{group};
+
+            foreach my $echo_network (keys %{ $ReceiveMap{$relay_group} } ) {
+
+                foreach my $echo_channel (keys %{ $ReceiveMap{$relay_group}{$echo_network} } ) {
+
+                    next if( ($echo_network eq $original_network) && ($echo_channel eq $original_channel) );
+
+                    my $channel_receive_enable = $ReceiveMap{$relay_group}{$echo_network}{$echo_channel};
+
+                    if( $channel_receive_enable ) {
+
+                         my $server = $forward_hosts{$echo_network};
+
+			 $server->privmsg($echo_channel,"*** signoff ".
+					  $reverse_hosts{$self}."!".$event->nick.' '.
+					  '('.join(' ',$event->args).')');
+		     }
+		}
+	    }
 	}
     }
 }

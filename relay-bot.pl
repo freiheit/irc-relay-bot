@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.34 2002/10/16 00:05:28 freiheit Exp $
+# $Id: relay-bot.pl,v 1.35 2002/10/16 00:15:59 freiheit Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -563,7 +563,6 @@ for (@irc) {
 
 # Look at the topic for a channel you join.
 sub on_topic {
-    return unless $config{echo_topic};
     my ($self, $event) = @_;
     my @args = $event->args();
     my @to = $event->to();
@@ -612,13 +611,14 @@ sub on_topic {
     }
 }
 
-print "Adding topic handler\n";
-for (@irc) {
-    $_->add_handler('topic',   \&on_topic);
+if ($config{echo_topic}) {
+    print "Adding topic handler\n";
+    for (@irc) {
+        $_->add_handler('topic',   \&on_topic);
+    }
 }
 
 sub public_msg {
-    return unless $config{echo_public_msg};
     my $self = shift;
     my $event = shift;
     
@@ -661,7 +661,6 @@ sub public_msg {
 }
 
 sub public_action {
-    return unless $config{echo_public_action};
     my ($self, $event) = @_;
     my ($nick, @args) = ($event->nick, $event->args);
     
@@ -689,7 +688,6 @@ sub public_action {
 }
 
 sub private_msg {
-    return unless $config{echo_private_msg};
     my $self = shift;
     my $event = shift;
     my @to = $event->to();
@@ -778,7 +776,6 @@ sub on_join {
 }
 
 sub on_nick_change {
-    return unless $config{echo_nick};
     my $self = shift;
     my $event = shift;
     
@@ -799,7 +796,6 @@ sub on_nick_change {
 }
 
 sub on_part {
-    return unless $config{echo_part};
     my $self = shift;
     my $event = shift;
     
@@ -824,7 +820,6 @@ sub on_part {
 }
 
 sub on_kick {
-    return unless $config{echo_kick};
     my $self = shift;
     my $event = shift;
     
@@ -843,8 +838,7 @@ sub on_kick {
     }
 }
 
-sub on_mode {
-    return unless $config{echo_cmode};
+sub on_cmode {
     my $self = shift;
     my $event = shift;
     
@@ -862,7 +856,6 @@ sub on_mode {
 }
 
 sub on_umode {
-    return unless $config{echo_umode};
     my $self = shift;
     my $event = shift;
     
@@ -880,7 +873,6 @@ sub on_umode {
 }
 
 sub on_quit {
-    return unless $config{echo_quit};
     my $self = shift;
     my $event = shift;
     
@@ -899,16 +891,36 @@ sub on_quit {
 
 print "Adding other handlers\n";
 for (@irc) {
-    $_->add_handler('public',  \&public_msg);
-    $_->add_handler('msg',     \&private_msg);
-    $_->add_handler('caction', \&public_action);
+    if ($config{echo_public_msg}) {
+        $_->add_handler('public',  \&public_msg);
+    }
+    if ($config{echo_public_action}) {
+        $_->add_handler('caction', \&public_action);
+    }
+    if($config{echo_private_msg}) {
+        $_->add_handler('msg',     \&private_msg);
+    }
+
     $_->add_handler('join',    \&on_join);
-    $_->add_handler('part',    \&on_part);
-    $_->add_handler('nick',    \&on_nick_change);
-    $_->add_handler('kick',    \&on_kick);
-    $_->add_handler('mode',    \&on_mode);
-    $_->add_handler('umode',   \&on_umode);
-    $_->add_handler('quit',    \&on_quit);
+
+    if($config{echo_part}) {
+        $_->add_handler('part',    \&on_part);
+    }
+    if($config{echo_nick}) {
+        $_->add_handler('nick',    \&on_nick_change);
+    }
+    if($config{echo_kick}) {
+        $_->add_handler('kick',    \&on_kick);
+    }
+    if($config{echo_cmode}) {
+        $_->add_handler('mode',    \&on_cmode);
+    }
+    if($config{echo_umode}) {
+        $_->add_handler('umode',   \&on_umode);
+    }
+    if($config{echo_quit}) {
+        $_->add_handler('quit',    \&on_quit);
+    }
 }
 
 sub samenick {

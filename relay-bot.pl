@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.33 2002/10/15 04:41:01 wepprop Exp $
+# $Id: relay-bot.pl,v 1.34 2002/10/16 00:05:28 freiheit Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -563,7 +563,7 @@ for (@irc) {
 
 # Look at the topic for a channel you join.
 sub on_topic {
-    return if !$config{echo_topic};
+    return unless $config{echo_topic};
     my ($self, $event) = @_;
     my @args = $event->args();
     my @to = $event->to();
@@ -618,7 +618,7 @@ for (@irc) {
 }
 
 sub public_msg {
-    return if !$config{echo_public_msg};
+    return unless $config{echo_public_msg};
     my $self = shift;
     my $event = shift;
     
@@ -661,7 +661,7 @@ sub public_msg {
 }
 
 sub public_action {
-    return if !$config{echo_public_action};
+    return unless $config{echo_public_action};
     my ($self, $event) = @_;
     my ($nick, @args) = ($event->nick, $event->args);
     
@@ -689,7 +689,7 @@ sub public_action {
 }
 
 sub private_msg {
-    return if !$config{echo_private_msg};
+    return unless $config{echo_private_msg};
     my $self = shift;
     my $event = shift;
     my @to = $event->to();
@@ -742,7 +742,7 @@ sub on_join {
 	$self->mode($channel,'+o',$event->nick);
     }
 
-    return if !$config{echo_join};
+    return unless $config{echo_join};
 
     my $nick = $event->nick;
     return if &samenick($nick);
@@ -778,7 +778,7 @@ sub on_join {
 }
 
 sub on_nick_change {
-    return if !$config{echo_nick};
+    return unless $config{echo_nick};
     my $self = shift;
     my $event = shift;
     
@@ -799,7 +799,7 @@ sub on_nick_change {
 }
 
 sub on_part {
-    return if !$config{echo_part};
+    return unless $config{echo_part};
     my $self = shift;
     my $event = shift;
     
@@ -824,7 +824,7 @@ sub on_part {
 }
 
 sub on_kick {
-    return if !$config{echo_kick};
+    return unless $config{echo_kick};
     my $self = shift;
     my $event = shift;
     
@@ -844,7 +844,7 @@ sub on_kick {
 }
 
 sub on_mode {
-    return if !$config{echo_cmode};
+    return unless $config{echo_cmode};
     my $self = shift;
     my $event = shift;
     
@@ -862,7 +862,7 @@ sub on_mode {
 }
 
 sub on_umode {
-    return if !$config{echo_umode};
+    return unless $config{echo_umode};
     my $self = shift;
     my $event = shift;
     
@@ -880,8 +880,7 @@ sub on_umode {
 }
 
 sub on_quit {
-
-    return if !$config{echo_quit};
+    return unless $config{echo_quit};
     my $self = shift;
     my $event = shift;
     

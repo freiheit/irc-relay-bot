@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.47 2003/05/12 00:29:19 freiheit Exp $
+# $Id: relay-bot.pl,v 1.48 2004/06/03 06:20:36 freiheit Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -1015,7 +1015,7 @@ sub private_msg {
 	return;
     }
     
-    if($arg =~ m/^[<>]?(\w{1,16})\@(\w{1,16})[<>]?\s+(.*)/) {
+    if($arg =~ m/^[<>]?([\w{}|^\[\]\\~]{1,16})\@(\w{1,16})[<>]?\s+(.*)/) {
 	my $to = $1;
 	my $net = $2;
 	$arg = $3;

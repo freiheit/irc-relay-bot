@@ -14,10 +14,18 @@ my $efnet = $irc->newconn(Nick   => 'Fandanta',
 my $under = $irc->newconn(Nick   => 'Fandanta',
 #                          Server => 'lasvegas.nv.us.undernet.org',
 #                          Server => 'austin.tx.us.undernet.org',
-                          Server => 'Atlanta.GA.US.Undernet.Org',
+                          Server => 'atlanta.ga.US.Undernet.Org',
 );
 
-push @irc, $efnet, $under;
+my $dal = $irc->newconn(Nick   => 'Fandanta',
+                        Server => 'us.dal.net',
+);
+
+my $open = $irc->newconn(Nick   => 'Fandanta',
+                        Server => 'irc.openprojects.net',
+);
+
+push @irc, $efnet, $under, $dal, $open;
 
 sub on_connect {
     my $self = shift;
@@ -150,6 +158,15 @@ sub public_msg {
 
     my $nick = $event->nick;
     my ($arg) = $event->args;
+    my @args = $event->args;
+
+    print "ARGS: ", join(':', @args), "\n";
+
+    my @to = $event->to;
+    print "TO: ", join(':', @to), "\n";
+
+    my @from = $event->from;
+    print "FROM: ", join(':', @from), "\n";
 
     print "<$nick> $arg\n";
 
@@ -163,12 +180,13 @@ sub public_action {
     my ($self, $event) = @_;
     my ($nick, @args) = ($event->nick, $event->args);
 
+    print "ARGS: ", join(':', @args), "\n";
     shift @args;
 
     print "* $nick @args\n";  
     for (@irc) {
 	next if $_ == $self;
-        $under->privmsg('#fandanta',"* $nick @args");
+        $_->privmsg('#fandanta',"* $nick @args");
     }
 }
 

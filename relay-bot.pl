@@ -1,10 +1,10 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.16 2001/06/09 21:25:23 freiheit Exp $
+# $Id: relay-bot.pl,v 1.17 2001/06/09 23:50:56 freiheit Exp $
 
 use strict;
-use lib qw:/usr/local/lib/site_perl/:;
+use lib qw:/usr/local/lib/site_perl ./:;
 use Net::IRC;
-use vars qw/@relay_channels %hosts @authorizations/;
+use vars qw/@relay_channels %hosts @authorizations $nick/;
 
 require 'relay-bot.config';
 
@@ -22,8 +22,8 @@ my %reverse_hosts = ();
 my $host;
 foreach $host (keys %hosts) {
     my $connect =  $irc->newconn(
-	Nick   => 'Fandanta',
-	Ircname => `/usr/games/fortune -s -n 60 zippy` || "Relay-bot for @relay_channels",
+	Nick   => $nick,
+	Ircname => "Relay-bot for @relay_channels",
 	Server => $hosts{$host});
     if (defined($connect) && $connect) {
         push @irc, $connect;

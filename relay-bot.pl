@@ -25,13 +25,20 @@ my $open = $irc->newconn(Nick   => 'Fandanta',
                         Server => 'irc.openprojects.net',
 );
 
-push @irc, $efnet, $under, $dal, $open;
+my $newnet = $irc->newconn(Nick   => 'Fandanta',
+                           Server => 'irc.chelmsford.com',
+);
+
+push @irc, $efnet, $under, $dal, $open, $newnet;
 
 sub on_connect {
     my $self = shift;
 
     print "Joining #fandanta\n";
     $self->join("#fandanta");
+
+    print "Joining #irkles\n";
+    $self->join("#irkles");
 }
 
 for (@irc) {
@@ -160,19 +167,18 @@ sub public_msg {
     my ($arg) = $event->args;
     my @args = $event->args;
 
-    print "ARGS: ", join(':', @args), "\n";
-
     my @to = $event->to;
-    print "TO: ", join(':', @to), "\n";
 
-    my @from = $event->from;
-    print "FROM: ", join(':', @from), "\n";
+    return if $arg =~ m/^\<\w+\> /;
+    return if $arg =~ m/\* \w+ /;
 
     print "<$nick> $arg\n";
 
-    for (@irc) {
-	next if $_ == $self;
-        $_->privmsg('#fandanta',"<$nick> $arg");
+    for my $server (@irc) {
+	next if $server == $self;
+        for my $to (@to) {
+            $server->privmsg($to,"<$nick> $arg");
+        }
     }
 }
 
@@ -183,10 +189,14 @@ sub public_action {
     print "ARGS: ", join(':', @args), "\n";
     shift @args;
 
+    my @to = $event->to;
+
     print "* $nick @args\n";  
-    for (@irc) {
-	next if $_ == $self;
-        $_->privmsg('#fandanta',"* $nick @args");
+    for my $server (@irc) {
+	next if $server == $self;
+        for my $to (@to) {
+            $server->privmsg($to,"* $nick @args");
+        }
     }
 }
 

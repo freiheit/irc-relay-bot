@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.17 2001/06/09 23:50:56 freiheit Exp $
+# $Id: relay-bot.pl,v 1.18 2001/06/10 00:26:59 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
@@ -124,7 +124,7 @@ sub cmd {
 		}
 		$cmd eq 'quit' and exit;
 		sleep 5;
-		exec($0,@ARGV) || die "exec($0,@ARGV): $!";
+		exec($0,@ARGV) || exec('perl',$0,@ARGV) || die "exec($0,@ARGV): $!";
 	}
 }
 
@@ -199,7 +199,7 @@ sub on_ping {
 
     print "$reverse_hosts{$self} ping from $nick\n";
 
-    $self->ctcp_reply($nick, join (' ', ($event->args)));
+    $self->ctcp_reply($nick, join (' ', ('PING', $event->args)));
 }
 
 for (@irc) {
@@ -258,6 +258,10 @@ sub on_topic {
 
         # Note the use of the same handler sub for different events.
 
+	if (&samenick($event->nick)) {
+		return 0;
+	}
+
         if ($event->type() eq 'notopic') {
             print "No topic set for $args[1].\n";
 
@@ -273,6 +277,7 @@ sub on_topic {
 					"!".($event->to())[0].
 					"!".$event->nick.
 					": $args[0]");
+				$server->topic(($event->to())[0],$args[0]);
 			}
 		}
         } else {
@@ -294,8 +299,8 @@ sub public_msg {
 
     my @to = $event->to;
 
-    return if $arg =~ m/^\<\w+\> /;
-    return if $arg =~ m/^\* \w+ /;
+    return if $arg =~ m/^\<\w+(\@\w+)?\> /;
+    return if $arg =~ m/^\* \w+(\@\w+)? /;
 
 	my $n = $self->nick;
 	if ($arg =~ /^(\Q$n\E[,:]\s*)?([\^\/!]\w+)(\s|$)/i) {
@@ -354,7 +359,7 @@ sub private_msg {
                 my $net = $2;
 		$arg = $3;
 		print $reverse_hosts{$self}.'!'.($event->to())[0].
-			"!$nick\@$reverse_hosts{$self} -> $to\@$net: $arg";
+			"!$nick\@$reverse_hosts{$self} -> $to\@$net: $arg\n";
 		if (exists $forward_hosts{$net}) {
 		    my $server = $forward_hosts{$net};
 		    $server->privmsg($to,">$nick\@$reverse_hosts{$self}< $arg");
@@ -363,14 +368,14 @@ sub private_msg {
 		my $to = $1;
 		$arg = $2;
 		print $reverse_hosts{$self}.'!'.($event->to())[0].
-			"!$nick\@$reverse_hosts{$self} -> $to: $arg";
+			"!$nick\@$reverse_hosts{$self} -> $to: $arg\n";
 		for my $server (@irc) {
 		    next if $server == $self;
 		    $server->privmsg($to,">$nick\@$reverse_hosts{$self}< $arg");
 		}
 	} else {
 		print $reverse_hosts{$self}.'!'.($event->to())[0].
-			"!$nick: $arg";
+			"!$nick: $arg\n";
 	}
 }
 
@@ -379,11 +384,18 @@ sub on_join {
     my $event = shift;
 
     my $nick = $event->nick;
-    return if $nick eq $self->nick;
+    return if &samenick($nick);
 
     my ($channel) = ($event->to)[0];
 
     my @arg = $event->args;
+
+    print( "*** join ".
+           $reverse_hosts{$self}."!".
+           ($event->to)[0].
+           ": ".$event->nick." ".$event->userhost);
+
+
 
 	for my $server (@irc) {
 		next if $server==$self;
@@ -410,7 +422,7 @@ sub on_nick_change {
 	print $reverse_hosts{$self}."!".($event->to)[0]." nick change ".
 		$event->nick." ".$event->userhost.join(' ',$event->args)."\n";
 
-	return if $event->nick eq $self->nick;
+	return if &samenick($event->nick);
 
 	for my $server (@irc) {
 		next if $server==$self;
@@ -427,10 +439,15 @@ sub on_part {
 	my $self = shift;
 	my $event = shift;
 
-	print $reverse_hosts{$self}."!".($event->to)[0]." nick change ".
-		$event->nick." ".$event->userhost;
+      print $reverse_hosts{$self}."!".($event->to)[0]." chan part ".
+               $event->nick." ".$event->userhost."\n";
 
-	return if $event->nick eq $self->nick;
+       return if &samenick($event->nick);
+
+       print( "*** part ".
+              $reverse_hosts{$self}."!".
+              ($event->to)[0].
+              ": ".$event->nick." ".$event->userhost);
 
 	for my $server (@irc) {
 		next if $server==$self;
@@ -447,9 +464,9 @@ sub on_kick {
 	my $event = shift;
 
 	print $reverse_hosts{$self}."!".($event->to)[0]." kick ".
-		$event->nick." ".join(' ',$event->args);
+		$event->nick." ".join(' ',$event->args)."\n";
 
-	return if $event->nick eq $self->nick;
+	return if &samenick($event->nick);
 
 	for my $server (@irc) {
 		next if $server==$self;
@@ -466,7 +483,7 @@ sub on_mode {
 	my $event = shift;
 
 	print $reverse_hosts{$self}."!".($event->to)[0]." mode ".
-		$event->nick." ".join(' ',$event->args);
+		$event->nick." ".join(' ',$event->args)."\n";
 
 	for my $server (@irc) {
 		next if $server==$self;
@@ -483,7 +500,7 @@ sub on_umode {
 	my $event = shift;
 
 	print $reverse_hosts{$self}."!".($event->to)[0]." umode ".
-		$event->nick." ".join(' ',$event->args);
+		$event->nick." ".join(' ',$event->args)."\n";
 
 	for my $server (@irc) {
 		next if $server==$self;
@@ -498,16 +515,16 @@ sub on_umode {
 sub on_quit {
 	my $self = shift;
 	my $event = shift;
-
-	print $reverse_hosts{$self}."!".($event->to)[0]." quit ".
-		$event->nick." ".join(' ',$event->args);
+	
+	print $reverse_hosts{$self}."!>".($event->to)[0]."< quit ".
+		$event->nick." ".join(' ',$event->args)."\n";
 
 	for my $server (@irc) {
 		next if $server==$self;
-		for my $to ($event->to) {
+		for my $to (@relay_channels) {
 			$server->privmsg($to,"*** signoff ".
 				$reverse_hosts{$self}."!".$event->nick.' '.
-				join(' ',$event->args));
+				'('.join(' ',$event->args).')');
 		}
 	}
 }
@@ -523,6 +540,15 @@ for (@irc) {
 	$_->add_handler('mode', \&on_mode);
 	$_->add_handler('umode', \&on_umode);
 	$_->add_handler('quit', \&on_quit);
+}
+
+sub samenick {
+       my $n = shift;
+       
+       for (keys %forward_hosts) {
+               return 1 if $forward_hosts{$_}->nick eq $n;
+       }
+       0;
 }
 
 print "starting with ",Net::IRC->VERSION,"\n";

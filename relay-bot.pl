@@ -6,10 +6,14 @@ use Net::IRC;
 my $irc = Net::IRC->new();
 
 my $efnet = $irc->newconn(Nick   => 'Fandanta',
-                          Server => 'irc.east.gblx.net',);
+                          Server => 'irc.east.gblx.net',
+);
 
 my $under = $irc->newconn(Nick   => 'Fandanta',
-                          Server => 'lasvegas.nv.us.undernet.org',);
+#                          Server => 'lasvegas.nv.us.undernet.org',
+#                          Server => 'austin.tx.us.undernet.org',
+                          Server => 'Atlanta.GA.US.Undernet.Org',
+);
 
 sub on_connect {
     my $self = shift;
@@ -133,7 +137,9 @@ sub efnet_msg {
     my $event = shift;
 
     my $nick = $event->nick;
-    my $arg = $event->args;
+    my ($arg) = $event->args;
+
+    print "EFnet: <$nick> $arg\n";
 
     $under->privmsg('#fandanta',"<$nick> $arg");
 }
@@ -142,16 +148,17 @@ $efnet->add_handler('public', \&efnet_msg);
 
 sub under_msg {
     my $self = shift;
-    my $event = shift;
+    my ($event) = shift;
 
     my $nick = $event->nick;
-    my $arg = $event->args;
+    my ($arg) = $event->args;
+
+    print "Under: <$nick> $arg\n";
 
     $efnet->privmsg('#fandanta',"<$nick> $arg");
 }
 
 $under->add_handler('public', \&under_msg);
-
 
 print "starting...\n";
 $irc->start;

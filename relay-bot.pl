@@ -1,21 +1,12 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.15 2001/06/08 22:25:47 freiheit Exp $
+# $Id: relay-bot.pl,v 1.16 2001/06/09 21:25:23 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl/:;
 use Net::IRC;
+use vars qw/@relay_channels %hosts @authorizations/;
 
-# What channels to join...
-my @relay_channels = ('#fandanta','#irkles');
-
-# simple hash -- key is "name", value is actual host to connect to.
-# name and value are different because it shouldn't matter to users
-# *what* EFnet IRC server is being used, for example.  (also looks better)
-my %hosts = (
-    efnet        => 'irc.east.gblx.net', # EFnet
-    undernet     => 'us.undernet.org',   # Undernet
-    openprojects => 'irc.debian.org',    # 'irc.openprojects.net',
-);
+require 'relay-bot.config';
 
 my $irc = Net::IRC->new();
 
@@ -25,28 +16,6 @@ my %cmd_pending = (
 	names => [], ping => [], kick => [], whatever => []
 );
 
-
-my $badpersonpriv = {};
-my $normalpriv = { 'names' => 1 };
-my $partjoinpriv = { %{$normalpriv}, 'part' => 1, 'join' => 1 };
-my $operpriv = { %{$partjoinpriv}, 'restart' => 1, 'quit' => 1, 'op' => 1 };
-my $allpriv = { '*' => 1 };
-
-# Those who may do things.  The first match takes precedence.  Patterns are
-# evaluated case-insensitively unless they have capital letters in them.
-my @authorizations = (
-	[ '^.?.?tr[o0]n|\.aol\.com|\.psi\.net' => $badpersonpriv ],
-	[ '^\w+!~?(aqua|eric)@'.
-		'adsl-63-197-80-100.dsl\.snfc21\.pacbell\.net$' => $operpriv ],
-	[ '^\w+!~?(echoes|ramoth)@'.
-		'adsl-63-197-80-100.dsl\.snfc21\.pacbell\.net$' => $operpriv ],
-	[ '^.?(ligeia|requiem|moppet|diphen|whitebird|aigeanta|proteous|freiheit|dragongrl).?!' => 
-		$partjoinpriv ],
-	[ '.' => $normalpriv ],
-);
-
-
-
 my %forward_hosts = ();
 my %reverse_hosts = ();
 
@@ -54,7 +23,7 @@ my $host;
 foreach $host (keys %hosts) {
     my $connect =  $irc->newconn(
 	Nick   => 'Fandanta',
-	Ircname => `/usr/games/fortune -s -n 60 zippy`,
+	Ircname => `/usr/games/fortune -s -n 60 zippy` || "Relay-bot for @relay_channels",
 	Server => $hosts{$host});
     if (defined($connect) && $connect) {
         push @irc, $connect;

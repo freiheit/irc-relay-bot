@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.28 2002/07/18 15:13:23 freiheit Exp $
+# $Id: relay-bot.pl,v 1.29 2002/07/18 15:25:33 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
@@ -319,6 +319,20 @@ sub on_topic {
 		$server->topic(($event->to())[0],$args[0]);
 	    }
 	}
+
+        for my $to (@to) {
+            my @channels_to = @{$relay_channels_extra{$to}};
+            for my $channel_to (@channels_to) {
+                for my $server (@irc) {
+                    $server->privmsg($channel_to,"*** topic ".
+				     $reverse_hosts{$self}.
+				     "!".($event->to())[0].
+				     "!".$event->nick.
+				     ": $args[0]");
+		    $server->topic($channel_to,$args[0]);
+                }
+            }
+        }
     } else {
 	print "The topic for $args[1] is \"$args[2]\".\n";
     }
@@ -384,6 +398,14 @@ sub public_action {
 	next if $server == $self;
         for my $to (@to) {
             $server->privmsg($to,"* $nick\@$reverse_hosts{$self} @args");
+        }
+    }
+    for my $to (@to) {
+        my @channels_to = @{$relay_channels_extra{$to}};
+        for my $channel_to (@channels_to) {
+            for my $server (@irc) {
+                $server->privmsg($channel_to,"* $nick\@$reverse_hosts{$self} @args");
+            }
         }
     }
 }
@@ -455,6 +477,17 @@ sub on_join {
 			     $reverse_hosts{$self}.
 			     ": ".$event->nick." ".$event->userhost);
 	}
+    }
+    for my $to ($event->to) {
+        my @channels_to = @{$relay_channels_extra{$to}};
+        for my $channel_to (@channels_to) {
+            for my $server (@irc) {
+	        $server->privmsg($channel_to,"*** join ".
+	                         ($event->to)[0].'@'.
+                                  $reverse_hosts{$self}.
+			         ": ".$event->nick." ".$event->userhost);
+            }
+        }
     }
     
     # primitive.

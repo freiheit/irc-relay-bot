@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.24 2002/07/05 19:07:15 freiheit Exp $
+# $Id: relay-bot.pl,v 1.25 2002/07/05 19:12:52 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
@@ -306,8 +306,8 @@ sub on_topic {
 	
         # If it's being done _to_ the channel, it's a topic change.
     } elsif ($event->type() eq 'topic' and $event->to()) {
-	print ($event->to())[0].'@'.$reverse_hosts{$self}.
-	": $args[0]\n";
+	print( ($event->to())[0] . '@'.$reverse_hosts{$self}.
+	": $args[0]\n" );
 	for my $server (@irc) {
 	    next if $server==$self;
 	    for my $to (@to) {
@@ -368,7 +368,7 @@ sub public_action {
 #    shift @args;
 
     my @to = $event->to;
-    print ($event->to())[0].'@'.$reverse_hosts{$self}." $nick @args\n";
+    print( ($event->to())[0].'@'.$reverse_hosts{$self}." $nick @args\n");
     
     for my $server (@irc) {
 	next if $server == $self;

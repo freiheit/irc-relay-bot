@@ -1,10 +1,20 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.13 2000/12/30 00:49:58 eric Exp $
+# $Id: relay-bot.pl,v 1.14 2001/06/07 19:26:34 freiheit Exp $
 use strict;
-
 use lib qw:/usr/local/lib/site_perl/:;
-
 use Net::IRC;
+
+# What channels to join...
+my @relay_channels = ('#fandanta','#irkles');
+
+# simple hash -- key is "name", value is actual host to connect to.
+# name and value are different because it shouldn't matter to users
+# *what* EFnet IRC server is being used, for example.  (also looks better)
+my %hosts = (
+    efnet        => 'irc.east.gblx.net', # EFnet
+    undernet     => 'us.undernet.org',   # Undernet
+    openprojects => 'irc.debian.org',    # 'irc.openprojects.net',
+);
 
 my $irc = Net::IRC->new();
 
@@ -14,7 +24,6 @@ my %cmd_pending = (
 	names => [], ping => [], kick => [], whatever => []
 );
 
-my @relay_channels = ('#fandanta','#irkles');
 
 my $badpersonpriv = {};
 my $normalpriv = { 'names' => 1 };
@@ -36,22 +45,6 @@ my @authorizations = (
 );
 
 
-my %hosts = (
-#    efnet => 'irc.west.gblx.net', # EFnet
-    efnet => 'irc.east.gblx.net', # EFnet
-#    'irc.lightning.net', # EFnet
-
-    undernet => 'us.undernet.org',
-#'atlanta.ga.US.Undernet.Org',
-    #'lasvegas.nv.us.undernet.org',
-    #'austin.tx.us.undernet.org',
-
-    # 'us.dal.net',
-
-    openprojects => 'irc.debian.org', # 'irc.openprojects.net',
-
-    #'irc.chelmsford.com', # Newnet
-);
 
 my %forward_hosts = ();
 my %reverse_hosts = ();

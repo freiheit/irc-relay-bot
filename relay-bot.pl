@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.31 2002/10/13 07:41:34 freiheit Exp $
+# $Id: relay-bot.pl,v 1.32 2002/10/14 17:49:45 freiheit Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -9,6 +9,7 @@ use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations $nick/;
 use vars qw/$echo_private_msg $echo_public_action $echo_topic/;
 use vars qw/$echo_join $echo_part $echo_nick $echo_kick $echo_cmode/;
 use vars qw/$echo_umode $echo_quit $interface_address $echo_public_msg/;
+use vars qw/$daemonize/;
 
 my $config_file_name = "relay-bot.config";
 
@@ -27,10 +28,11 @@ my $set_echo_cmode         = $unused_option;
 my $set_echo_umode         = $unused_option;
 my $set_echo_quit          = $unused_option;
 my $set_echo_topic         = $unused_option;
+my $set_daemonize          = $unused_option;
 
 my $set_interface_address = "";
 
-my $valid_args = "acefhijkmnpqtuv";
+my $valid_args = "acedhijkmnpqtuv";
 
 for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 
@@ -65,6 +67,14 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			$set_echo_cmode = 1;
 		}
 		
+		# -d
+		if( $arg =~ /^\-[$valid_args]*d/ ) {
+			$set_daemonize = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*d/ ) {
+			$set_daemonize = 1;
+		}
+		
 		# -e
 		if( $arg =~ /^\-[$valid_args]*e/ ) {
 			$set_echo_public_msg = 0;
@@ -88,21 +98,23 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			print "   [+|-]c      Echo channel modes    ";
 			print "   [+|-]n      Echo nick changes     \n";	
 
-			print "   [+|-]e      Echo channel msgs     ";
+			print "   [+|-]d      Run in background     ";
 			print "   [+|-]p      Echo parts            \n";
 
-			print "   -f <fname>  Specify config file   ";
+			print "   [+|-]e      Echo channel msgs     ";
 			print "   [+|-]q      Echo quits            \n";	
 	
-			print "   -h          Command option help   ";
+			print "   -f <fname>  Specify config file   ";
 			print "   [+|-]t      Echo topic            \n";
 
-			print "   -i <ipaddr> Specify interface     ";
+			print "   -h          Command option help   ";
 			print "   [+|-]u      Echo user modes       \n";	
 
-			print "   [+|-]j      Echo joins            ";
+
+			print "   -i <ipaddr> Specify interface     ";
 			print "   -v          Version information   \n";
 	
+			print "   [+|-]j      Echo joins            ";
 			print "   [+|-]k      Echo kicks            \n";
 
                         print "\n+ enables option, - disables option\n";
@@ -231,6 +243,9 @@ if( !defined( $echo_quit ) ) {
 if( !defined( $echo_topic ) ) {
     $echo_topic = 1;
 }
+if( !defined( $daemonize ) ) {
+    $daemonize = 0;
+}
 
 # Override config file settings with command line args where req'd.
 if ( $set_echo_public_msg != $unused_option ) {
@@ -269,10 +284,19 @@ if ( $set_echo_topic != $unused_option ) {
 if ( $set_interface_address ne "" ) {
     $interface_address = $set_interface_address;
 }
+if ( $set_daemonize != $unused_option ) {
+    $daemonize = $set_daemonize;
+}
+
 
 # Actual IRC object...
 my $irc = Net::IRC->new();
 print "Created Net::IRC object\n";
+
+if ( $daemonize ) {
+    require Proc::Daemon;
+    Proc::Daemon::Init();
+}
 
 # Actual IRC connections kept here, kinda...
 my @irc;

@@ -1,10 +1,10 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.27 2002/07/18 15:08:24 freiheit Exp $
+# $Id: relay-bot.pl,v 1.28 2002/07/18 15:13:23 freiheit Exp $
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
 use Net::IRC;
-use vars qw/@relay_channels %hosts @authorizations $nick/;
+use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations $nick/;
 
 require 'relay-bot.config';
 
@@ -357,6 +357,15 @@ sub public_msg {
 	next if $server == $self;
         for my $to (@to) {
             $server->privmsg($to,"<$nick\@$reverse_hosts{$self}> $arg");
+        }
+    }
+
+    for my $to (@to) {
+        my @channels_to = @{$relay_channels_extra{$to}};
+        for my $channel_to (@channels_to) {
+            for my $server (@irc) {
+                $server->privmsg($channel_to,"<$nick\@$reverse_hosts{$self}> $arg");
+            }
         }
     }
 }

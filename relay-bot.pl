@@ -5,6 +5,8 @@ use Net::IRC;
 
 my $irc = Net::IRC->new();
 
+my @irc;
+
 my $efnet = $irc->newconn(Nick   => 'Fandanta',
                           Server => 'irc.east.gblx.net',
 );
@@ -15,6 +17,8 @@ my $under = $irc->newconn(Nick   => 'Fandanta',
                           Server => 'Atlanta.GA.US.Undernet.Org',
 );
 
+push @irc, $efnet, $under;
+
 sub on_connect {
     my $self = shift;
 
@@ -22,9 +26,9 @@ sub on_connect {
     $self->join("#fandanta");
 }
 
-$efnet->add_global_handler('376', \&on_connect);
-$under->add_global_handler('376', \&on_connect);
-
+for (@irc) {
+    $_->add_global_handler('376', \&on_connect);
+}
 
 # Handles some messages you get when you connect
 sub on_init {
@@ -35,8 +39,9 @@ sub on_init {
     print "*** @args\n";
 }
 
-$efnet->add_global_handler([ 251,252,253,254,302,255 ], \&on_init);
-$under->add_global_handler([ 251,252,253,254,302,255 ], \&on_init);
+for (@irc) {
+    $_->add_global_handler([ 251,252,253,254,302,255 ], \&on_init);
+}
 
 # What to do when we receive a private PRIVMSG.
 sub on_msg {
@@ -46,8 +51,9 @@ sub on_msg {
     print "*$nick*  ", ($event->args), "\n";
 }
 
-$efnet->add_handler('msg',    \&on_msg);
-$under->add_handler('msg',    \&on_msg);
+for (@irc) {
+    $_->add_handler('msg',    \&on_msg);
+}
 
 # Prints the names of people in a channel when we enter.
 sub on_names {
@@ -60,8 +66,9 @@ sub on_names {
     print "Users on $channel: @list\n";
 }
 
-$efnet->add_global_handler(353, \&on_names);
-$under->add_global_handler(353, \&on_names);
+for (@irc) {
+    $_->add_global_handler(353, \&on_names);
+}
 
 # Yells about incoming CTCP PINGs.
 sub on_ping {
@@ -72,8 +79,9 @@ sub on_ping {
     print "*** CTCP PING request from $nick received\n";
 }
 
-$efnet->add_handler('cping',  \&on_ping);
-$under->add_handler('cping',  \&on_ping);
+for (@irc) {
+    $_->add_handler('cping',  \&on_ping);
+}
 
 # Gives lag results for outgoing PINGs.
 sub on_ping_reply {
@@ -85,8 +93,9 @@ sub on_ping_reply {
     print "*** CTCP PING reply from $nick: $args sec.\n";
 }
 
-$efnet->add_handler('crping', \&on_ping_reply);
-$under->add_handler('crping', \&on_ping_reply);
+for (@irc) {
+    $_->add_handler('crping', \&on_ping_reply);
+}
 
 # Change our nick if someone stole it.
 sub on_nick_taken {
@@ -95,8 +104,9 @@ sub on_nick_taken {
     $self->nick(substr($self->nick, -1) . substr($self->nick, 0, 8));
 }
 
-$efnet->add_global_handler(433, \&on_nick_taken);
-$under->add_global_handler(433, \&on_nick_taken);
+for (@irc) {
+    $_->add_global_handler(433, \&on_nick_taken);
+}
 
 # Reconnect to the server when we die.
 sub on_disconnect {
@@ -107,8 +117,9 @@ sub on_disconnect {
         $self->connect();
 }
 
-$efnet->add_global_handler('disconnect', \&on_disconnect);
-$under->add_global_handler('disconnect', \&on_disconnect);
+for (@irc) {
+    $_->add_global_handler('disconnect', \&on_disconnect);
+}
 
 # Look at the topic for a channel you join.
 sub on_topic {
@@ -129,72 +140,42 @@ sub on_topic {
         }
 }
 
-$efnet->add_handler('topic',   \&on_topic);
-$under->add_handler('topic',   \&on_topic);
+for (@irc) {
+    $_->add_handler('topic',   \&on_topic);
+}
 
-sub efnet_msg {
+sub public_msg {
     my $self = shift;
     my $event = shift;
 
     my $nick = $event->nick;
     my ($arg) = $event->args;
 
-    if ($self == $under) {
-	print "SELF=UNDER\n";
-    }
-    if ($self == $efnet) {
-	print "SELF=EFNET\n";
-    }
+    print "<$nick> $arg\n";
 
-    print "EFnet: <$nick> $arg\n";
-
-    $under->privmsg('#fandanta',"<$nick> $arg");
+    for (@irc) {
+	next if $_ == $self;
+        $_->privmsg('#fandanta',"<$nick> $arg");
+    }
 }
 
-sub efnet_action {
+sub public_action {
     my ($self, $event) = @_;
     my ($nick, @args) = ($event->nick, $event->args);
 
     shift @args;
 
-    print "EFnet: * $nick @args\n";  
-    $under->privmsg('#fandanta',"* $nick @args");
-}
-
-$efnet->add_handler('public', \&efnet_msg);
-$efnet->add_handler('caction', \&efnet_action);
-
-sub under_msg {
-    my $self = shift;
-    my ($event) = shift;
-
-    my $nick = $event->nick;
-    my ($arg) = $event->args;
-
-    if ($self == $under) {
-	print "SELF=UNDER\n";
+    print "* $nick @args\n";  
+    for (@irc) {
+	next if $_ == $self;
+        $under->privmsg('#fandanta',"* $nick @args");
     }
-    if ($self == $efnet) {
-	print "SELF=EFNET\n";
-    }
-
-    print "Under: <$nick> $arg\n";
-
-    $efnet->privmsg('#fandanta',"<$nick> $arg");
 }
 
-sub under_action {
-    my ($self, $event) = @_;
-    my ($nick, @args) = ($event->nick, $event->args);
-
-    shift @args;
-
-    print "Under: * $nick @args\n";  
-    $efnet->privmsg('#fandanta',"* $nick @args");
+for (@irc) {
+    $_->add_handler('public', \&public_msg);
+    $_->add_handler('caction', \&public_action);
 }
-
-$under->add_handler('public', \&under_msg);
-$under->add_handler('caction', \&under_action);
 
 print "starting...\n";
 $irc->start;

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.43 2002/10/24 03:02:05 wepprop Exp $
+# $Id: relay-bot.pl,v 1.44 2002/10/24 22:45:22 wepprop Exp $
 my $version_number = "x.x";
 
 use strict;
@@ -26,13 +26,14 @@ my %override = (
 	       echo_cmode =>         $unused_option,
 	       echo_umode =>         $unused_option,
 	       echo_quit =>          $unused_option,
+	       echo_set_topic =>     $unused_option,
 	       echo_topic =>         $unused_option,
 	       daemonize =>          $unused_option,
 	       logfile =>           "$unused_option",
 	       interface_address =>  "",
 );
 
-my $valid_args = "acdefhijklmnpqtuvw";
+my $valid_args = "acdefhijklmnpqstuvw";
 
 for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 
@@ -44,14 +45,14 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			print "Invalid argument $1 contained in $arg\n";
 			print "\t-h for help.\n"; 
 			exit 1;
-		
 		}
+
 		if( $arg =~ /^[-+][$valid_args]+([fhilvw])/ ) {
 			print "$1 may not be grouped with other args: $arg\n";
 			exit 1;
 		}
 
-		# -a
+		# -a enable/disable echo of public actions
 		if( $arg =~ /^\-[$valid_args]*a/ ) {
 			$override{echo_public_action} = 0;
 		}
@@ -59,7 +60,7 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			$override{echo_public_action} = 1;
 		}
 		
-		# -c
+		# -c enable/disable echo of channel mode changes
 		if( $arg =~ /^\-[$valid_args]*c/ ) {
 			$override{echo_cmode} = 0;
 		}
@@ -67,18 +68,15 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			$override{echo_cmode} = 1;
 		}
 		
-		# -d
+		# -d enable/disable running detached (background)
 		if( $arg =~ /^\-[$valid_args]*d/ ) {
 			$override{daemonize} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*d/ ) {
 			$override{daemonize} = 1;
-
-
-
-		    }
+		}
 		
-		# -e
+		# -e enable/disable echo of public messages
 		if( $arg =~ /^\-[$valid_args]*e/ ) {
 			$override{echo_public_msg} = 0;
 		}
@@ -86,35 +84,35 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			$override{echo_public_msg} = 1;
 		}
 
-		# -f
+		# -f set config filename
 		if( $arg =~ /^-f/ ) {
 			$config_file_name = $ARGV[$i+1];
 			$interval = 2;
 			next SWITCH;	
 		}
 
-		# -h
+		# -h program help
 		if( $arg =~ /^-h/ ) {
 			print "   [+|-]a      Echo public actions   ";
-			print "   -l <fname>  Specify log file      \n";
+			print "   [+|-]m      Echo private msgs     \n";
 
 			print "   [+|-]c      Echo channel modes    ";
-			print "   [+|-]m      Echo private msgs     \n";	
-
-			print "   [+|-]d      Run in background     ";
 			print "   [+|-]n      Echo nick changes     \n";	
 
-			print "   [+|-]e      Echo channel msgs     ";
+			print "   [+|-]d      Run in background     ";
 			print "   [+|-]p      Echo parts            \n";
+
+			print "   [+|-]e      Echo channel msgs     ";
+			print "   [+|-]q      Echo quits            \n";	
 	
 			print "   -f <fname>  Specify config file   ";
-			print "   [+|-]q      Echo quits            \n";	
+			print "   [+|-]s      Set topic by echo     \n";
 
 			print "   -h          Command option help   ";
-			print "   [+|-]t      Echo topic            \n";
+			print "   [+|-]t      Echo topic change     \n";
 
 			print "   -i <ipaddr> Specify interface     ";
-			print "   [+|-]u      Echo user modes       \n";	
+			print "   [+|-]u      Echo user modes       \n";
 	
 			print "   [+|-]j      Echo joins            ";
 			print "   -v          Version information   \n";
@@ -122,11 +120,13 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			print "   [+|-]k      Echo kicks            ";
 			print "   -w nick     Specify nick/handle   \n";
 
+			print "   -l <fname>  Specify log file      \n";
+
                         print "\n+ enables option, - disables option\n";
 			exit 0;
 		}
 		
-		# -i
+		# -i set interface (by ip address) to use on multi-homed box
 		if( $arg =~ /^-i/ ) {
 			my $addr = $ARGV[$i+1];
 			if( $addr =~ /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/ ) {	
@@ -139,7 +139,7 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			}
 		}
 
-		# -j
+		# -j enable/disable echo of joins
 		if( $arg =~ /^\-[$valid_args]*j/ ) {
 			$override{echo_join} = 0;
 		}
@@ -147,7 +147,7 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			$override{echo_join} = 1;
 		}
 		
-		# -k
+		# -k enable/disable echo of kicks
 		if( $arg =~ /^\-[$valid_args]*k/ ) {
 			$override{echo_kick} = 0;
 		}
@@ -155,14 +155,14 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			$override{echo_kick} = 1;
 		}
 		
-		# -l 
+		# -l set log file
 		if( $arg =~ /^-l/ ) {
 			$override{logfile} = $ARGV[$i+1];
 			$interval = 2;
 			next SWITCH;	
 		}
 
-		# -m
+		# -m enable/disable echo of private msgs
 		if( $arg =~ /^\-[$valid_args]*m/ ) {
 			$override{echo_private_msg} = 0;
 		}
@@ -170,7 +170,7 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			$override{echo_private_msg} = 1;
 		}
 
-		# -n
+		# -n enable/disable echo of nick changes
 		if( $arg =~ /^\-[$valid_args]*n/ ) {
 			$override{echo_nick} = 0;
 		}
@@ -178,7 +178,7 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			$override{echo_nick} = 1;
 		}
 		
-		# -p
+		# -p enable/disable echo of parts
 		if( $arg =~ /^\-[$valid_args]*p/ ) {
 			$override{echo_part} = 0;
 		}
@@ -186,15 +186,24 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			$override{echo_part} = 1;
 		}
 		
-		# -q
+		# -q echo quits
 		if( $arg =~ /^\-[$valid_args]*q/ ) {
 			$override{echo_quit} = 0;
 		}
 		if( $arg =~ /^\+[$valid_args]*q/ ) {
 			$override{echo_quit} = 1;
 		}
+
+		# -s set topic in echo channels
+		if( $arg =~ /^\-[$valid_args]*s/ ) {
+			$override{echo_set_topic} = 0;
+		}
+		if( $arg =~ /^\+[$valid_args]*s/ ) {
+			$override{echo_set_topic} = 1;
+		}
+
 		
-		# -t
+		# -t enable/disable echo of topic change
 		if( $arg =~ /^\-[$valid_args]*t/ ) {
 			$override{echo_topic} = 0;
 		}
@@ -202,7 +211,7 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			$override{echo_topic} = 1;
 		}
 
-		# -u  
+		# -u enable/disable echo of user mode changes
 		if( $arg =~ /^\-[$valid_args]*u/ ) {
 			$override{echo_umode} = 0;
 		}
@@ -210,13 +219,13 @@ for ( my $i = 0, my $interval = 1 ; $i <= $#ARGV ; $i += $interval ) {
 			$override{echo_umode} = 1;
 		}
 		
-		# -v
+		# -v print version number
 		if( $arg =~ /^-v/ ) {
 			print "relay-bot version $version_number\n";
 			exit 0;
 		}
 
-		# -w
+		# -w set nick (who) of relay bot
 		if( $arg =~ /^-w/ ) {
 			$override{nick} = $ARGV[$i+1];
 			$interval = 2;
@@ -241,6 +250,7 @@ require $config_file_name;
 	   echo_cmode => 1,
 	   echo_umode => 1,
 	   echo_quit => 1,
+	   echo_set_topic => 1,
 	   echo_topic => 1,
 	   daemonize => 0,
 	   interface_address => "",
@@ -286,6 +296,9 @@ if ( $override{echo_umode} != $unused_option ) {
 }
 if ( $override{echo_quit} != $unused_option ) {
     $config{echo_quit} = $override{echo_quit};
+}
+if ( $override{echo_set_topic} != $unused_option ) {
+    $config{echo_set_topic} = $override{echo_set_topic};
 }
 if ( $override{echo_topic} != $unused_option ) {
     $config{echo_topic} = $override{echo_topic};
@@ -722,14 +735,17 @@ sub on_topic {
 
                             my $server = $forward_hosts{$echo_network};
 
-                            $server->privmsg($echo_channel,"*** topic ".
-                                             $original_network.
-                                             "!".$original_channel.
-                                             "!".$event->nick.
-                                             ": $args[0]");
+                            if( $config{echo_topic} ) {
+				$server->privmsg($echo_channel,"*** topic ".
+						 $original_network.
+						 "!".$original_channel.
+						 "!".$event->nick.
+						 ": $args[0]");
+			    }
 
-                            $server->topic($echo_channel,$args[0]);
-
+                            if( $config{echo_set_topic} ) {
+				$server->topic($echo_channel,$args[0]);
+			    }
                         }
                     }
                 }
@@ -755,7 +771,7 @@ sub on_topic {
     }
 }
 
-if ($config{echo_topic}) {
+if( $config{echo_topic} || $config{echo_set_topic} ) {
     print LOGFILE "Adding topic handler\n";
     for (@irc) {
         $_->add_handler('topic',   \&on_topic);

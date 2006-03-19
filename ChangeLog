@@ -1,12 +1,205 @@
+2006-03-19 08:47  freiheit
+
+	* relay-bot.config: Fixed small issue in example config file
+
+2006-03-19 08:39  freiheit
+
+	* BUGS, relay-bot.pl: Prepping for update to a new release
+
+2005-03-18 12:48  freiheit
+
+	* relay-bot.pl: Slight simplification of the 376/422 code issue.
+
+2005-03-18 12:36  freiheit
+
+	* relay-bot.pl: Added support for "no motd" in addition to current
+	  "end of motd".
+
+2004-06-04 16:28  freiheit
+
+	* relay-bot.pl: Second try at allowing more characters in nicks.
+
+2004-06-02 23:20  freiheit
+
+	* relay-bot.pl: - Changed to allow relaying privmsgs to users with
+	  unusual (but legal)	characters in their nicks.
+
+2003-05-11 17:29  freiheit
+
+	* relay-bot.config, relay-bot.pl: Made sleep time configurable.
+
+2003-03-22 13:59  freiheit
+
+	* relay-bot.config: Added a few comments to the config.
+
+2002-11-02 09:30  wepprop
+
+	* relay-bot.config, relay-bot.pl: Reworked logging.  Logging now
+	  works when daemon mode invoked.  Added option to disable output
+	  buffering for logfile.  Added interrupt signal handler to close
+	  the log file.  STDERR is now redirected to the log file.
+
+2002-10-26 11:38  wepprop
+
+	* relay-bot.config, relay-bot.pl: Reworked the 'join' and 'part'
+	  commands to be compatible with relay groups.	Specification of
+	  channel AND network to join or part remains the same. However, if
+	  you pass only a single argument 'join' or 'part' it is assumed to
+	  be a relay group and, if valid, all of the channels in the group
+	  will be join'ed or part'ed.
+
+	  Also added an 'add' command which allow a channel to be added to
+	  an existing relay group, or if the specified relay group doesn't
+	  exist, a new one is created.	Syntax for this is:
+
+	  /add #channel net group rcv xmit password
+
+	  These arguments correspond to the elements in the %Relays
+	  structure in the config file.  The last three arguments are
+	  optional in the sense that if they are unspecified, default
+	  values of 1, 1, and '' will be assumed.  However, to specify a
+	  password, for example, rcv and xmit must be specified.
+
+	  Once a channel has been added to a group, it is not automatically
+	  'join'ed.  It is merely eligible to be 'join'ed the next time a
+	  'join' request is issued to that channel or group.
+
+2002-10-24 15:45  wepprop
+
+	* relay-bot.config, relay-bot.pl: Added separate config items for
+	  echo-announcing topic changes and/or actually setting topic in
+	  echo channels.
+
+2002-10-23 20:02  wepprop
+
+	* relay-bot.pl: Relay group functionality added to the remaining
+	  handlers.
+
+2002-10-23 13:12  wepprop
+
+	* relay-bot.pl: 1)  Fixed oops that broke reverse compatibility for
+	  config files containing $nick.  2)  Fixed bug in on_disconnect
+	  resulting from misinterpretation of an obscure block of code that
+	  I eventually figured out was there to provide reverse
+	  compatibility with much earlier versions of the config file.	I
+	  attempted to restore that functionality, but did not test it to
+	  any degree.  It should be noted that attempting to provide
+	  reverse compatibility with every previous versions is what made
+	  Windows what it is today.
+
+2002-10-22 17:49  wepprop
+
+	* relay-bot.config, relay-bot.pl: $nick has been assimilated.
+
+2002-10-21 20:48  wepprop
+
+	* relay-bot.config, relay-bot.pl: Full relay group functionality
+	  has been implemented for topic changes *only*.
+
+2002-10-21 10:45  freiheit
+
+	* relay-bot.pl: Changed %config handling so that it can
+	  intelligently deal with an individual config item not being set,
+	  instead of with the %config hash existing or not existing.
+
+2002-10-20 13:55  wepprop
+
+	* relay-bot.config, relay-bot.pl: Beginning the implementation of
+	  relay groups.  No change in functionality in these changes, only
+	  the addition of the %Relays structure to the config file, and the
+	  associated changes to the execution script.  If %hosts is defined
+	  instead, data from it and $relay_channels are used to create a
+	  %Relays structure.  In the new %Relays structure, the
+	  functionality associated with the group, xmit, and rcv elements
+	  is not yet implemented.
+
+2002-10-17 17:29  wepprop
+
+	* relay-bot.config, relay-bot.pl: Formal logfile specification, for
+	  those who prefer that over redirection.  Default behavior is to
+	  write to standard out.
+
+2002-10-16 15:03  wepprop
+
+	* relay-bot.config, relay-bot.pl: Added auto-ops list, fixed typo
+	  on '$nick' specification.
+
+2002-10-15 17:15  freiheit
+
+	* relay-bot.pl: Moved the checks for the "echo_" config items
+	  (except the on_join which also handles ops) down to the spot
+	  where the subroutines are bound to Net::IRC; more efficient to
+	  simply not call the subroutine at all if you don't want to use
+	  it, than to check at the beginning of the subroutine if it should
+	  run.
+
+2002-10-15 17:05  freiheit
+
+	* relay-bot.pl: Rewrote a bit to be more "perlish" and a tad easier
+	  to read, but compiles identically.
+
+2002-10-14 21:41  wepprop
+
+	* relay-bot.config, relay-bot.pl: Collapsed individual config
+	  options into monolithic hashes.
+
+2002-10-14 10:49  freiheit
+
+	* relay-bot.config, relay-bot.pl: Patch from wepprop to add daemon
+	  (run in background) capability.  It uses the Proc::Daemon module,
+	  but "require"'s it rather than "use"'s it, so that people who
+	  don't intend to use daemon mode aren't required to install the
+	  package.
+
+2002-10-14 10:41  freiheit
+
+	* relay-bot.sh: Example little shell script I had laying around;
+	  command-line options from wepprop are probably better for much of
+	  this.
+
+2002-10-13 00:41  freiheit
+
+	* relay-bot.config, relay-bot.pl: per-function config and
+	  command-line options from wepprop (disable or enable acting on
+	  channel joins, parts, topic changes, etc...)
+
+2002-10-07 21:15  freiheit
+
+	* relay-bot.config: Better examples of what can be done...
+
+2002-07-18 10:06  freiheit
+
+	* relay-bot.pl: Check if array is even in the hash before trying to
+	  use hash; avoids death on topic change and other problems.
+
+2002-07-18 08:25  freiheit
+
+	* relay-bot.pl: Cross-channel relaying expanded to include more
+	  than simple public_msg.
+
+2002-07-18 08:13  freiheit
+
+	* relay-bot.pl: Added cross-channel relaying.
+
+2002-07-18 08:08  freiheit
+
+	* relay-bot.pl: Comments explaining what some bits do.
+
+2002-07-18 08:07  freiheit
+
+	* README: expand on how to run thing in background.
+
+2002-07-05 13:28  freiheit
+
+	* ChangeLog: [no log message]
+
 2002-07-05 13:26  freiheit
 
-	* AUTHORS, ChangeLog, INSTALL, README (utags: RELEASE_1_POINT_0):
-	Release 1.0
+	* AUTHORS, ChangeLog, INSTALL, README: Release 1.0
 
 2002-07-05 12:47  freiheit
 
-	* relay-bot.pl (tags: RELEASE_1_POINT_0): More formatting changes;
-	net!nick -> nick@net
+	* relay-bot.pl: More formatting changes; net!nick -> nick@net
 
 2002-07-05 12:12  freiheit
 
@@ -18,26 +211,27 @@
 
 2002-07-04 12:30  freiheit
 
-	* relay-bot.config (tags: RELEASE_1_POINT_0): Demonstrates
-	multi-host per network stuff now.  Mmmm...
+	* relay-bot.config: Demonstrates multi-host per network stuff now.
+	  Mmmm...
 
 2002-07-04 12:29  freiheit
 
 	* relay-bot.pl: Smarter about disconnects and commented out
-	LocalAddr that we needed on that one box...
+	  LocalAddr that we needed on that one box...
 
 2002-07-04 12:25  freiheit
 
-	* README, TODO (tags: RELEASE_1_POINT_0): Documentation updates. 
-	(Still terrible, but a bit improved)
+	* README, TODO: Documentation updates.	(Still terrible, but a bit
+	  improved)
 
 2001-08-17 17:15  freiheit
 
-	* relay-bot.pl: Changes to support multiple servers per network. 
-	At startup will connect to them in order until it succeeds; when
-	disconnected, it will randomly try one of the servers defined for
-	that network.  In %hosts, just have an anonymous array containing
-	scalars instead of a scalar.  (still works fine with just a scalar)
+	* relay-bot.pl: Changes to support multiple servers per network.
+	  At startup will connect to them in order until it succeeds; when
+	  disconnected, it will randomly try one of the servers defined for
+	  that network.  In %hosts, just have an anonymous array containing
+	  scalars instead of a scalar.	(still works fine with just a
+	  scalar)
 
 2001-07-13 15:56  freiheit
 
@@ -46,7 +240,7 @@
 2001-07-13 15:56  freiheit
 
 	* relay-bot.config: comment out most of the auth lines so they're
-	examples, not "real".
+	  examples, not "real".
 
 2001-07-03 23:26  freiheit
 
@@ -62,24 +256,21 @@
 
 2001-06-10 01:03  freiheit
 
-	* AUTHORS, BUGS (tags: RELEASE_1_POINT_0), INSTALL, README (utags:
-	RELEASE_0_POINT_9): Files added in preparation for initial release.
+	* AUTHORS, BUGS, INSTALL, README: Files added in preparation for
+	  initial release.
 
 2001-06-10 00:24  freiheit
 
-	* Artistic, GPL, LICENSE (utags: RELEASE_1_POINT_0,
-	RELEASE_0_POINT_9): Licensing stuff...
+	* Artistic, GPL, LICENSE: Licensing stuff...
 
 2001-06-09 23:37  freiheit
 
-	* relay-bot.pl (tags: RELEASE_0_POINT_9): Bunch of formatting
-	fixups and some more printing during startup to figure out what
-	takes so fucking long.
+	* relay-bot.pl: Bunch of formatting fixups and some more printing
+	  during startup to figure out what takes so fucking long.
 
 2001-06-09 23:36  freiheit
 
-	* relay-bot.config (tags: RELEASE_0_POINT_9): Formatting fixups and
-	some explanatory comments
+	* relay-bot.config: Formatting fixups and some explanatory comments
 
 2001-06-09 23:03  freiheit
 
@@ -92,12 +283,12 @@
 2001-06-09 16:50  freiheit
 
 	* relay-bot.config, relay-bot.pl: Moving the nick into the
-	configuration...
+	  configuration...
 
 2001-06-09 14:25  freiheit
 
 	* relay-bot.config, relay-bot.pl: (Hopefully) Changing to using a
-	separate config file...
+	  separate config file...
 
 2001-06-08 15:25  freiheit
 
@@ -106,7 +297,7 @@
 2001-06-07 12:26  freiheit
 
 	* relay-bot.pl: Rearranged a little so "config" code is near the
-	top.
+	  top.
 
 2000-12-29 16:49  eric
 
@@ -119,18 +310,18 @@
 2000-12-10 23:39  eric
 
 	* relay-bot.pl: A bunch of changes from Devin that need to be
-	committed.  Should be moving this to SourceForge soon, so he can do
-	it himself.
+	  committed.  Should be moving this to SourceForge soon, so he can
+	  do it himself.
 
 2000-11-27 22:56  eric
 
 	* relay-bot.pl: Various Devin changes...  (like notification of
-	signons and signoffs)
+	  signons and signoffs)
 
 2000-11-27 22:55  eric
 
 	* relay-bot.pl: Some changes I made -- not even sure what,
-	exactly...
+	  exactly...
 
 2000-11-16 17:15  eric
 
@@ -151,12 +342,12 @@
 2000-10-22 16:58  eric
 
 	* relay-bot.pl: Now it can easily be expanded to work with lots of
-	nets.
+	  nets.
 
 2000-10-22 16:50  eric
 
 	* relay-bot.pl: Discovered that I can detect which handle I've
-	got...	:-)
+	  got...  :-)
 
 2000-10-22 16:05  eric
 
@@ -165,5 +356,5 @@
 2000-10-22 15:51  eric
 
 	* relay-bot.pl: Hopefully there's a remote chance that it'll
-	connect in two places and relay stuff between...
+	  connect in two places and relay stuff between...
 

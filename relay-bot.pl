@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.51 2005/03/18 20:48:22 freiheit Exp $
-my $version_number = "x.x";
+# $Id: relay-bot.pl,v 1.52 2006/03/19 16:39:05 freiheit Exp $
+my $version_number = "1.1";
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;

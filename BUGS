@@ -4,7 +4,3 @@
 - relay-bot can sometimes actually die from disconnects.  I suggest running
   it in a loop like "while sleep 1 ; do perl -w relay-bot.pl; sleep 60;
   done"
-
-- Only a single server for a given network can be specified.  Would be
-  better if a list could be specified and either be used cyclically on
-  disconnect, or randomly chosen.

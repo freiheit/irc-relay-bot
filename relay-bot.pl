@@ -1,10 +1,11 @@
 #!/usr/bin/perl -w
-# $Id: relay-bot.pl,v 1.52 2006/03/19 16:39:05 freiheit Exp $
+# $Id: relay-bot.pl,v 1.53 2007/12/23 23:18:27 freiheit Exp $
 my $version_number = "1.1";
 
 use strict;
 use lib qw:/usr/local/lib/site_perl ./:;
 use Net::IRC;
+
 use vars qw/@relay_channels %relay_channels_extra %hosts @authorizations $nick %config/;
 use vars qw/%Relays %ReceiveMap @auto_ops/;
 
@@ -436,7 +437,9 @@ if( $config{logfile} ne "" ) {
 
 $SIG{INT} = \&signal_interrupt;
 
-# Actual IRC object...
+# Actual IRC object...  This is the heart of the program; all we really do is 
+# tell Net::IRC that it's got some IRC connections that all have hooks.  And
+# then most of the work is passing messages between the connections.
 my $irc = Net::IRC->new();
 print "Created Net::IRC object\n";
 
@@ -450,6 +453,13 @@ my %cmd_pending = (
 my %forward_hosts = ();
 my %reverse_hosts = ();
 
+# This loops through each IRC network, then through each server for
+# the network.  The first server on a network that works, it'll then skip
+# to the next network.  If no server for a network succeeds, it doesn't get
+# used at all.  It's a tradeoff; if you have 10 IRC networks and one isn't
+# going to work, you probably want it to just work with the other 9.  If
+# you're only using 2 IRC networks, you probably want it to keep trying
+# forever.
 print "Setting up hosts\n";
 my $connect;
 my $host;
@@ -482,14 +492,17 @@ foreach $host (keys %Relays) {
 	    $forward_hosts{$host} = $connect;
             $reverse_hosts{"$connect"} = $host;
             print "$host ($server) successful\n";
-	    last;
+	    last; # Move onto next network
         } else {
 	    print "$host ($server) failed\n";
+	    # and proceed to try another server for this network
         }
     }
 }
 print "Done with hosts\n";
 
+# This routine is mostly used by the cmd hook to check if the user has
+# permissions to do what they're trying to do.
 sub cmd_auth {
     my ($nuh,$cmd) = @_;
     ref $nuh eq 'Net::IRC::Event' and $nuh = $nuh->nick.'!'.$nuh->userhost;
@@ -503,10 +516,11 @@ sub cmd_auth {
     0;
 }
 
+# This is called when a message looks like it's a command.
+# The commands themselves are handled inside various if statements here...
 my @allcmd = ('names','restart','die','quit','leave','part','join','add');
 my %cmd_map = ( 'die' => 'quit', 'leave' => 'part', map { ($_=>$_) } @allcmd );
-my @permdenied_msg = ( 'Permission denied.', 'Insufficient privelege',
-			'u r ! l33t w1t m3' );
+my @permdenied_msg = ( 'Permission denied', 'Insufficient privileges',);
 sub cmd {
     my ($cmd,$who,$host,$event) = @_;
     my $cmd0 = $cmd;
@@ -530,7 +544,10 @@ sub cmd {
 	return;
     }
 
+    # some debugging to the screen.
     print "$who\@$reverse_hosts{$host} issued cmd '$cmd' args {@args}\n";
+
+    # show who's on the channel on the other networks
     if (lc $cmd eq 'names') {
 	my $channel = shift @args || ($event->to)[0];
 	for my $server (@irc) {
@@ -542,6 +559,7 @@ sub cmd {
 	    $server->names($channel);
 	}
     } 
+    # join a channel; if allowed there.
     elsif ($cmd eq 'join') {
 	my $channel_or_group = shift @args || return;
 	my $network = shift @args || '';
@@ -582,6 +600,7 @@ sub cmd {
 			       "Invalid argument: $group is not a valid group\n");
 	    }
 	}
+    # leave a channel
     } elsif ($cmd eq 'part') {
 	my $channel_or_group = shift @args || return;
 	my $network = shift @args || '';
@@ -618,6 +637,7 @@ sub cmd {
 			       "Invalid argument: $group is not a valid group\n");
 	    }
 	}
+    # quit or restart the program.  Restart might not work, depending on env
     } elsif ($cmd eq 'quit' or $cmd eq 'restart') {
 	for my $server (@irc) {
 	    $server->quit($cmd eq 'quit' ? "Bailing" : "Restarting".
@@ -626,6 +646,7 @@ sub cmd {
 	$cmd eq 'quit' and exit;
 	sleep 5;
 	exec($0,@ARGV) || exec('perl',$0,@ARGV) || die "exec($0,@ARGV): $!";
+    # add a channel to the allowed list.
     } elsif( $cmd eq 'add' ) {
 	my $channel  = shift @args || return;
 	my $network  = shift @args || return;
@@ -662,6 +683,7 @@ sub cmd {
 }
 
 
+# Hook for joining all the right channels when a new connection is established.
 sub on_connect {
     my $self = shift;
     my $network = $reverse_hosts{$self};
@@ -679,6 +701,7 @@ for my $server (@irc) {
     $server->add_global_handler([376, 422], \&on_connect);
 }
 
+# Pretty much just makes sure messages from the server get sent to the screen
 # Handles some messages you get when you connect
 sub on_init {
     my ($self, $event) = @_;
@@ -731,7 +754,7 @@ for (@irc) {
     $_->add_global_handler(353, \&on_names);
 }
 
-# Yells about incoming CTCP PINGs.
+# Yells about incoming CTCP PINGs and replies to them
 sub on_ping {
     my ($self, $event) = @_;
     my $nick = $event->nick;
@@ -774,11 +797,20 @@ for (@irc) {
 }
 
 # Reconnect to the server when we die.
+# Randomly picks from the servers on a network.
+# Just keeps trying.  If a given network succeeded, it should eventually work
+# again; right?
+# Possible problem: blocking I/O causes connection problems with one network
+# to turn into potential problems with all networks, since it'll spend so
+# much time trying to reconnect.
+# Note the potential infinite recursion at the end.
 sub on_disconnect {
     my ($self, $event) = @_;
     
     print "Disconnected from ", $event->from(), " (",
     ($event->args())[0], "). Attempting to reconnect...\n";
+
+    # Trying to reconnect too fast is a sure way to get permanently banned
     print "Sleeping";
     local $| = 1;
     foreach (1..3) {
@@ -786,6 +818,7 @@ sub on_disconnect {
 	print ".";
     }
     print "\n";
+
     my $network = $reverse_hosts{$self};
     my @serverlist = @{ $Relays{$network}{servers} };
     my $last_server_index = $#serverlist;
@@ -803,6 +836,8 @@ for (@irc) {
 }
 
 # Look at the topic for a channel you join.
+# Also changes the topic everywhere if it's changed in one place.
+# Might require bot to have ops.
 sub on_topic {
     my ($self, $event) = @_;
     my @args = $event->args();
@@ -888,6 +923,11 @@ if( $config{echo_topic} || $config{echo_set_topic} ) {
     }
 }
 
+# This handles regular messages to channels.  This is the real heart of the
+# code that handles the bots main mission in life.
+# It takes extra care to ignore anything that looks too much like a second
+# instance of itself.
+# Recognition of commands hides in here.
 sub public_msg {
     my $self = shift;
     my $event = shift;

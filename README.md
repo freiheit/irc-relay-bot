@@ -1,9 +1,9 @@
 # Links
-relay-bot
-http://sf.net/projects/relay-bot/
-https://github.com/freiheit/irc-relay-bot
-http://freshmeat.net/projects/relay-bot/
-http://fandanta.org/
+* relay-bot 
+* http://sf.net/projects/relay-bot/ 
+* https://github.com/freiheit/irc-relay-bot 
+* http://freshmeat.net/projects/relay-bot/ 
+* http://fandanta.org/ 
 
 # NOTE
 

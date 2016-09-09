@@ -38,10 +38,12 @@ There's currently no real installation routine; just untar the tarball, edit
 
 # USAGE
 
-run relay-bot.pl, possibly in a loop like "while sleep 10 ; do
-./relay-bot.pl; done".  Or "nohup ./relay-bot.pl >> /var/log/relay-bot.log
-2>&1".  Or combine the two into: 
-nohup sh -c "while sleep 10 ; do ./relay-bot.pl >> /var/log/relay-bot.log 2>&1 ; done" &
+run relay-bot.pl, possibly in a loop like `while sleep 10 ; do
+./relay-bot.pl; done`.  Or `nohup ./relay-bot.pl >> /var/log/relay-bot.log
+2>&1`.  Or combine the two into: 
+```
+  nohup sh -c "while sleep 10 ; do ./relay-bot.pl >> /var/log/relay-bot.log 2>&1 ; done" &
+```
 
 It will sign onto all the servers in %hosts and join all the channels in
 @relay_channels.
@@ -55,16 +57,20 @@ irc.openprojects.net (abbreviated as 'op'), with Bob on ef and Sue on op,
 here's a conversation through a bot named after the channel:
 
 From EFnet:
+```
 <Bob> Hi everybody, how's it going?
 <foochan> <Sue@op> Oh, I'm doing good.  How about you?
 <Bob> Just fine.  Love the relay bot.
 <foochan> <Sue@op> Yeah, me too
+```
 
 From openprojects:
+```
 <foochan> <Bob@ef> Hi everybody, how's it going?
 <Sue> Oh, I'm doing good.  How about you?
 <foochan> <Bob@ef> Just fine.  Love the relay bot.
 <Sue> Yeah, me too
+```
 
 Sue can private message Bob by sending a message to foochan that starts with
 "<Bob@ef>", like "/msg foochan <Bob@ef> hi there".  The <>s are optional or
@@ -87,6 +93,7 @@ all passed through, too.
 There's a primitive command set for a very limited amount of things.
 
 /command will give public (in channel) results
+
 ^command will give private results
 
 "/names" (or ^names) in a channel will list who's on that channel in all other

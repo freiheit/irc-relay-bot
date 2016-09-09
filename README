@@ -1,9 +1,15 @@
 WHAT
 relay-bot
 http://sf.net/projects/relay-bot/
+https://github.com/freiheit/irc-relay-bot
 http://freshmeat.net/projects/relay-bot/
 http://fandanta.org/
 
+NOTE
+
+This has not been used by the main author in almost a decade. The key
+library it depends on has also been abandoned a decade ago. This is not so
+much code you can run as it is an interesting bit of archaelogy.
 
 REASON
 
